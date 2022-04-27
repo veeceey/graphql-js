@@ -169,7 +169,6 @@ const TypeA = new GraphQLObjectType({
   }),
   isTypeOf: (_value, _context, _info) =>
     new Promise((_resolve, reject) =>
-      // eslint-disable-next-line
       setTimeout(() => reject(new Error('TypeA_isTypeOf_rejected')), 10),
     ),
 });
@@ -648,7 +647,7 @@ describe('Execute: Union and intersection types', () => {
     });
 
     // Give the TypeA promise a chance to reject and the listener to fire
-    // eslint-disable-next-line
+
     await new Promise((resolve) => setTimeout(resolve, 20));
 
     // eslint-disable-next-line
