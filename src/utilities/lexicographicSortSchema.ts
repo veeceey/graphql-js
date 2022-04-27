@@ -154,8 +154,7 @@ export function lexicographicSortSchema(schema: GraphQLSchema): GraphQLSchema {
         ...config,
         fields: () => sortInputFields(config.fields),
       });
-    }
-    /* c8 ignore next 3 */
+    } /* c8 ignore next 3 */
     // Not reachable, all possible types have been considered.
     invariant(false, 'Unexpected type: ' + inspect(type));
   }

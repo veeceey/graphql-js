@@ -750,8 +750,7 @@ function completeValue(
       path,
       result,
     );
-  }
-  /* c8 ignore next 6 */
+  } /* c8 ignore next 6 */
   // Not reachable, all possible output types have been considered.
   invariant(
     false,

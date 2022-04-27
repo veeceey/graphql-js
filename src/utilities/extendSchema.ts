@@ -266,8 +266,7 @@ export function extendSchemaImpl(
     }
     if (isInputObjectType(type)) {
       return extendInputObjectType(type);
-    }
-    /* c8 ignore next 3 */
+    } /* c8 ignore next 3 */
     // Not reachable, all possible type definition nodes have been considered.
     invariant(false, 'Unexpected type: ' + inspect(type));
   }

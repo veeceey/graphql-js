@@ -154,8 +154,7 @@ export function valueFromAST(
       return; // Invalid: intentionally return no value.
     }
     return result;
-  }
-  /* c8 ignore next 3 */
+  } /* c8 ignore next 3 */
   // Not reachable, all possible input types have been considered.
   invariant(false, 'Unexpected input type: ' + inspect(type));
 }

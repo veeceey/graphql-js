@@ -146,8 +146,7 @@ export function printType(type: GraphQLNamedType): string {
   }
   if (isInputObjectType(type)) {
     return printInputObject(type);
-  }
-  /* c8 ignore next 3 */
+  } /* c8 ignore next 3 */
   // Not reachable, all possible types have been considered.
   invariant(false, 'Unexpected type: ' + inspect(type));
 }

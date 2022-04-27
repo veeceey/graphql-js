@@ -199,8 +199,7 @@ function coerceInputValueImpl(
       );
     }
     return parseResult;
-  }
-  /* c8 ignore next 3 */
+  } /* c8 ignore next 3 */
   // Not reachable, all possible types have been considered.
   invariant(false, 'Unexpected input type: ' + inspect(type));
 }
