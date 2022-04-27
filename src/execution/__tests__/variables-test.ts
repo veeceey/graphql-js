@@ -253,7 +253,7 @@ describe('Execute: Handles inputs', () => {
     it('errors on faulty scalar type input', () => {
       const result = executeQuery(`
         {
-          fieldWithObjectInput(input: {c: "foo", e: "bar"})
+          fieldWithObjectInput(input: { c: "foo", e: "bar" })
         }
       `);
 
@@ -263,7 +263,8 @@ describe('Execute: Handles inputs', () => {
         },
         errors: [
           {
-            message: 'Argument "input" has invalid value {c: "foo", e: "bar"}.',
+            message:
+              'Argument "input" has invalid value { c: "foo", e: "bar" }.',
             path: ['fieldWithObjectInput'],
             locations: [{ line: 3, column: 39 }],
           },
