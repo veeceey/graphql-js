@@ -163,8 +163,8 @@ jobs:
       - name: Install Dependencies
         run: npm ci --ignore-scripts
 
-      - name: Run Tests
-        run: npm run testonly
+      - name: Run Tests with coverage
+        run: npm run testonly:cover
 
   codeql:
     name: Run CodeQL security scan
