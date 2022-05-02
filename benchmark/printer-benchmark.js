@@ -1,13 +1,11 @@
-'use strict';
+import { parse } from 'graphql/language/parser.js';
+import { print } from 'graphql/language/printer.js';
 
-const { parse } = require('graphql/language/parser.js');
-const { print } = require('graphql/language/printer.js');
-
-const { bigDocumentSDL } = require('./fixtures.js');
+import { bigDocumentSDL } from './fixtures.js';
 
 const document = parse(bigDocumentSDL);
 
-module.exports = {
+export const benchmark = {
   name: 'Print kitchen sink document',
   count: 1000,
   measure() {
