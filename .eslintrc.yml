@@ -694,6 +694,7 @@ overrides:
     rules:
       internal-rules/only-ascii: [error, { allowEmoji: true }]
       node/no-sync: off
+      import/no-namespace: off
       import/no-unresolved: off
       import/no-nodejs-modules: off
       no-console: off
@@ -735,6 +736,3 @@ overrides:
       import/no-commonjs: off
       import/no-nodejs-modules: off
       import/no-extraneous-dependencies: off
-  - files: 'benchmark/benchmark.js'
-    parserOptions:
-      sourceType: script
