@@ -1,11 +1,11 @@
-import { syntaxError } from '../error/syntaxError';
+import { syntaxError } from '../error/syntaxError.js';
 
-import { Token } from './ast';
-import { isNameStart } from './characterClasses';
-import type { LexerInterface } from './lexer';
-import { createToken, printCodePointAt, readName } from './lexer';
-import type { Source } from './source';
-import { TokenKind } from './tokenKind';
+import { Token } from './ast.js';
+import { isNameStart } from './characterClasses.js';
+import type { LexerInterface } from './lexer.js';
+import { createToken, printCodePointAt, readName } from './lexer.js';
+import type { Source } from './source.js';
+import { TokenKind } from './tokenKind.js';
 
 /**
  * Given a Source schema coordinate, creates a Lexer for that source.

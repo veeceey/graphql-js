@@ -1,11 +1,11 @@
-export { GraphQLError } from './GraphQLError';
+export { GraphQLError } from './GraphQLError.js';
 export type {
   GraphQLErrorOptions,
   GraphQLFormattedError,
   GraphQLErrorExtensions,
   GraphQLFormattedErrorExtensions,
-} from './GraphQLError';
+} from './GraphQLError.js';
 
-export { syntaxError } from './syntaxError';
+export { syntaxError } from './syntaxError.js';
 
-export { locatedError } from './locatedError';
+export { locatedError } from './locatedError.js';

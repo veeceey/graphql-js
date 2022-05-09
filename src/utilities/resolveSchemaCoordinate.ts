@@ -1,4 +1,4 @@
-import { inspect } from '../jsutils/inspect';
+import { inspect } from '../jsutils/inspect.js';
 
 import type {
   ArgumentCoordinateNode,
@@ -7,10 +7,10 @@ import type {
   MemberCoordinateNode,
   SchemaCoordinateNode,
   TypeCoordinateNode,
-} from '../language/ast';
-import { Kind } from '../language/kinds';
-import { parseSchemaCoordinate } from '../language/parser';
-import type { Source } from '../language/source';
+} from '../language/ast.js';
+import { Kind } from '../language/kinds.js';
+import { parseSchemaCoordinate } from '../language/parser.js';
+import type { Source } from '../language/source.js';
 
 import type {
   GraphQLArgument,
@@ -22,15 +22,15 @@ import type {
   GraphQLInterfaceType,
   GraphQLNamedType,
   GraphQLObjectType,
-} from '../type/definition';
+} from '../type/definition.js';
 import {
   isEnumType,
   isInputObjectType,
   isInterfaceType,
   isObjectType,
-} from '../type/definition';
-import type { GraphQLDirective } from '../type/directives';
-import type { GraphQLSchema } from '../type/schema';
+} from '../type/definition.js';
+import type { GraphQLDirective } from '../type/directives.js';
+import type { GraphQLSchema } from '../type/schema.js';
 
 /**
  * A resolved schema element may be one of the following kinds:

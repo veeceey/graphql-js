@@ -1,19 +1,19 @@
 import { assert, expect } from 'chai';
 import { describe, it } from 'mocha';
 
-import { expectJSON } from '../../__testUtils__/expectJSON';
+import { expectJSON } from '../../__testUtils__/expectJSON.js';
 
-import { inspect } from '../../jsutils/inspect';
+import { inspect } from '../../jsutils/inspect.js';
 
-import { GraphQLError } from '../../error/GraphQLError';
+import { GraphQLError } from '../../error/GraphQLError.js';
 
-import { Kind } from '../../language/kinds';
-import { parse } from '../../language/parser';
+import { Kind } from '../../language/kinds.js';
+import { parse } from '../../language/parser.js';
 
 import type {
   GraphQLArgumentConfig,
   GraphQLFieldConfig,
-} from '../../type/definition';
+} from '../../type/definition.js';
 import {
   GraphQLEnumType,
   GraphQLInputObjectType,
@@ -21,12 +21,12 @@ import {
   GraphQLNonNull,
   GraphQLObjectType,
   GraphQLScalarType,
-} from '../../type/definition';
-import { GraphQLString } from '../../type/scalars';
-import { GraphQLSchema } from '../../type/schema';
+} from '../../type/definition.js';
+import { GraphQLString } from '../../type/scalars.js';
+import { GraphQLSchema } from '../../type/schema.js';
 
-import { executeSync } from '../execute';
-import { getVariableValues } from '../values';
+import { executeSync } from '../execute.js';
+import { getVariableValues } from '../values.js';
 
 const TestFaultyScalarGraphQLError = new GraphQLError(
   'FaultyScalarErrorMessage',

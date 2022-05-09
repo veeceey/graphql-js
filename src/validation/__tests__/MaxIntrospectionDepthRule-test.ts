@@ -1,10 +1,10 @@
 import { describe, it } from 'mocha';
 
-import { getIntrospectionQuery } from '../../utilities/getIntrospectionQuery';
+import { getIntrospectionQuery } from '../../utilities/getIntrospectionQuery.js';
 
-import { MaxIntrospectionDepthRule } from '../rules/MaxIntrospectionDepthRule';
+import { MaxIntrospectionDepthRule } from '../rules/MaxIntrospectionDepthRule.js';
 
-import { expectValidationErrors } from './harness';
+import { expectValidationErrors } from './harness.js';
 
 function expectErrors(queryStr: string) {
   return expectValidationErrors(MaxIntrospectionDepthRule, queryStr);

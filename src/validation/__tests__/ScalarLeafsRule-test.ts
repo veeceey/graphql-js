@@ -1,15 +1,15 @@
 import { describe, it } from 'mocha';
 
-import { expectJSON } from '../../__testUtils__/expectJSON';
+import { expectJSON } from '../../__testUtils__/expectJSON.js';
 
-import type { DocumentNode } from '../../language/ast';
-import { OperationTypeNode } from '../../language/ast';
-import { Kind } from '../../language/kinds';
+import type { DocumentNode } from '../../language/ast.js';
+import { OperationTypeNode } from '../../language/ast.js';
+import { Kind } from '../../language/kinds.js';
 
-import { ScalarLeafsRule } from '../rules/ScalarLeafsRule';
-import { validate } from '../validate';
+import { ScalarLeafsRule } from '../rules/ScalarLeafsRule.js';
+import { validate } from '../validate.js';
 
-import { expectValidationErrors, testSchema } from './harness';
+import { expectValidationErrors, testSchema } from './harness.js';
 
 function expectErrors(queryStr: string) {
   return expectValidationErrors(ScalarLeafsRule, queryStr);

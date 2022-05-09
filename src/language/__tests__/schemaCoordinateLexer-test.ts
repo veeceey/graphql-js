@@ -1,11 +1,11 @@
 import { expect } from 'chai';
 import { describe, it } from 'mocha';
 
-import { expectToThrowJSON } from '../../__testUtils__/expectJSON';
+import { expectToThrowJSON } from '../../__testUtils__/expectJSON.js';
 
-import { SchemaCoordinateLexer } from '../schemaCoordinateLexer';
-import { Source } from '../source';
-import { TokenKind } from '../tokenKind';
+import { SchemaCoordinateLexer } from '../schemaCoordinateLexer.js';
+import { Source } from '../source.js';
+import { TokenKind } from '../tokenKind.js';
 
 function lexSecond(str: string) {
   const lexer = new SchemaCoordinateLexer(new Source(str));

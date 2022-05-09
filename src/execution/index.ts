@@ -1,4 +1,4 @@
-export { pathToArray as responsePathAsArray } from '../jsutils/Path';
+export { pathToArray as responsePathAsArray } from '../jsutils/Path.js';
 
 export {
   createSourceEventStream,
@@ -7,16 +7,16 @@ export {
   defaultFieldResolver,
   defaultTypeResolver,
   subscribe,
-} from './execute';
+} from './execute.js';
 
 export type {
   ExecutionArgs,
   ExecutionResult,
   FormattedExecutionResult,
-} from './execute';
+} from './execute.js';
 
 export {
   getArgumentValues,
   getVariableValues,
   getDirectiveValues,
-} from './values';
+} from './values.js';

@@ -27,11 +27,11 @@
  */
 
 // The GraphQL.js version info.
-export { version, versionInfo } from './version';
+export { version, versionInfo } from './version.js';
 
 // The primary entry point into fulfilling a GraphQL request.
-export type { GraphQLArgs } from './graphql';
-export { graphql, graphqlSync } from './graphql';
+export type { GraphQLArgs } from './graphql.js';
+export { graphql, graphqlSync } from './graphql.js';
 
 // Create and operate on GraphQL type definitions and schema.
 export {
@@ -137,7 +137,7 @@ export {
   // Upholds the spec rules about naming.
   assertName,
   assertEnumValueName,
-} from './type/index';
+} from './type/index.js';
 
 export type {
   GraphQLType,
@@ -197,7 +197,7 @@ export type {
   GraphQLScalarSerializer,
   GraphQLScalarValueParser,
   GraphQLScalarLiteralParser,
-} from './type/index';
+} from './type/index.js';
 
 // Parse and operate on GraphQL language source files.
 export {
@@ -240,7 +240,7 @@ export {
   isTypeSystemExtensionNode,
   isTypeExtensionNode,
   isSchemaCoordinateNode,
-} from './language/index';
+} from './language/index.js';
 
 export type {
   ParseOptions,
@@ -322,7 +322,7 @@ export type {
   ArgumentCoordinateNode,
   DirectiveCoordinateNode,
   DirectiveArgumentCoordinateNode,
-} from './language/index';
+} from './language/index.js';
 
 // Execute GraphQL queries.
 export {
@@ -336,13 +336,13 @@ export {
   getDirectiveValues,
   subscribe,
   createSourceEventStream,
-} from './execution/index';
+} from './execution/index.js';
 
 export type {
   ExecutionArgs,
   ExecutionResult,
   FormattedExecutionResult,
-} from './execution/index';
+} from './execution/index.js';
 
 // Validate GraphQL documents.
 export {
@@ -391,19 +391,19 @@ export {
   // Custom validation rules
   NoDeprecatedCustomRule,
   NoSchemaIntrospectionCustomRule,
-} from './validation/index';
+} from './validation/index.js';
 
-export type { ValidationRule } from './validation/index';
+export type { ValidationRule } from './validation/index.js';
 
 // Create, format, and print GraphQL errors.
-export { GraphQLError, syntaxError, locatedError } from './error/index';
+export { GraphQLError, syntaxError, locatedError } from './error/index.js';
 
 export type {
   GraphQLErrorOptions,
   GraphQLFormattedError,
   GraphQLErrorExtensions,
   GraphQLFormattedErrorExtensions,
-} from './error/index';
+} from './error/index.js';
 
 // Utilities for operating on GraphQL type schema and parsed sources.
 export {
@@ -461,7 +461,7 @@ export {
   // Schema Coordinates
   resolveSchemaCoordinate,
   resolveASTSchemaCoordinate,
-} from './utilities/index';
+} from './utilities/index.js';
 
 export type {
   IntrospectionOptions,
@@ -492,4 +492,4 @@ export type {
   TypedQueryDocumentNode,
   // Schema Coordinates
   ResolvedSchemaElement,
-} from './utilities/index';
+} from './utilities/index.js';

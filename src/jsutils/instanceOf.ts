@@ -1,4 +1,4 @@
-import { inspect } from './inspect';
+import { inspect } from './inspect.js';
 
 /* c8 ignore next 3 */
 const isProduction =

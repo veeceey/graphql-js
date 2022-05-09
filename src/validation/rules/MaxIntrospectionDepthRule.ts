@@ -1,10 +1,10 @@
-import { GraphQLError } from '../../error/GraphQLError';
+import { GraphQLError } from '../../error/GraphQLError.js';
 
-import type { ASTNode } from '../../language/ast';
-import { Kind } from '../../language/kinds';
-import type { ASTVisitor } from '../../language/visitor';
+import type { ASTNode } from '../../language/ast.js';
+import { Kind } from '../../language/kinds.js';
+import type { ASTVisitor } from '../../language/visitor.js';
 
-import type { ASTValidationContext } from '../ValidationContext';
+import type { ASTValidationContext } from '../ValidationContext.js';
 
 const MAX_LISTS_DEPTH = 3;
 
