@@ -243,9 +243,6 @@ export {
 export type {
   ParseOptions,
   SourceLocation,
-  TokenKindEnum,
-  KindEnum,
-  DirectiveLocationEnum,
   // Visitor utilities
   ASTVisitor,
   ASTVisitFn,

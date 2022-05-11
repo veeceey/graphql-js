@@ -25,10 +25,3 @@ enum DirectiveLocation {
   INPUT_FIELD_DEFINITION = 'INPUT_FIELD_DEFINITION',
 }
 export { DirectiveLocation };
-
-/**
- * The enum type representing the directive location values.
- *
- * @deprecated Please use `DirectiveLocation`. Will be remove in v17.
- */
-export type DirectiveLocationEnum = typeof DirectiveLocation;
