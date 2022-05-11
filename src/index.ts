@@ -221,7 +221,6 @@ export {
   // Visit
   visit,
   visitInParallel,
-  getVisitFn,
   getEnterLeaveForKind,
   BREAK,
   Kind,
