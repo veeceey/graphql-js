@@ -1,10 +1,9 @@
-import { expect } from 'chai';
+import { assert, expect } from 'chai';
 import { describe, it } from 'mocha';
 
 import { expectJSON } from '../../__testUtils__/expectJSON';
 
 import { inspect } from '../../jsutils/inspect';
-import { invariant } from '../../jsutils/invariant';
 
 import { GraphQLError } from '../../error/GraphQLError';
 
@@ -1075,9 +1074,9 @@ describe('Execute: Handles inputs', () => {
     `);
 
     const operation = doc.definitions[0];
-    invariant(operation.kind === Kind.OPERATION_DEFINITION);
+    assert(operation.kind === Kind.OPERATION_DEFINITION);
     const { variableDefinitions } = operation;
-    invariant(variableDefinitions != null);
+    assert(variableDefinitions != null);
 
     const inputValue = { input: [0, 1, 2] };
 
