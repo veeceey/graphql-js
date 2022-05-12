@@ -693,13 +693,9 @@ overrides:
     env:
       node: true
     rules:
-      internal-rules/only-ascii: [error, { allowEmoji: true }]
       node/no-sync: off
-      import/no-namespace: off
       import/no-unresolved: off
       import/no-nodejs-modules: off
-      no-console: off
-      no-await-in-loop: off
   - files: 'resources/**'
     env:
       node: true
@@ -711,6 +707,7 @@ overrides:
       import/no-extraneous-dependencies: [error, { devDependencies: true }]
       import/no-nodejs-modules: off
       no-console: off
+      no-await-in-loop: off
   - files: 'resources/eslint-internal-rules/**'
     env:
       node: true
