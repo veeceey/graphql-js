@@ -8,8 +8,9 @@
 /diff-npm-package.html
 /.eslintcache
 /.cspellcache
+/.stryker-tmp
 node_modules
-/coverage
+/reports
 /npmDist
 /denoDist
 /websiteDist
