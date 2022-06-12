@@ -191,7 +191,7 @@ function subscribeWithBadFn(
 
   return expectEqualPromisesOrValues(
     subscribe({ schema, document }),
-    createSourceEventStream(schema, document),
+    createSourceEventStream({ schema, document }),
   );
 }
 
@@ -419,63 +419,6 @@ describe('Subscription Initialization Phase', () => {
 
     // @ts-expect-error
     expect(() => subscribe({ schema })).to.throw('Must provide document.');
-  });
-
-  it('Deprecated: allows positional arguments to createSourceEventStream', async () => {
-    async function* fooGenerator() {
-      /* c8 ignore next 2 */
-      yield { foo: 'FooValue' };
-    }
-
-    const schema = new GraphQLSchema({
-      query: DummyQueryType,
-      subscription: new GraphQLObjectType({
-        name: 'Subscription',
-        fields: {
-          foo: { type: GraphQLString, subscribe: fooGenerator },
-        },
-      }),
-    });
-    const document = parse('subscription { foo }');
-
-    const eventStream = await createSourceEventStream(schema, document);
-    assert(isAsyncIterable(eventStream));
-  });
-
-  it('Deprecated: throws an error if document is missing when using positional arguments', async () => {
-    const document = parse('subscription { foo }');
-    const schema = new GraphQLSchema({
-      query: DummyQueryType,
-      subscription: new GraphQLObjectType({
-        name: 'Subscription',
-        fields: {
-          foo: { type: GraphQLString },
-        },
-      }),
-    });
-
-    // @ts-expect-error (schema must not be null)
-    expect(() => createSourceEventStream(null, document)).to.throw(
-      'Expected null to be a GraphQL schema.',
-    );
-
-    expect(() =>
-      createSourceEventStream(
-        // @ts-expect-error
-        undefined,
-        document,
-      ),
-    ).to.throw('Expected undefined to be a GraphQL schema.');
-
-    // @ts-expect-error (document must not be null)
-    expect(() => createSourceEventStream(schema, null)).to.throw(
-      'Must provide document.',
-    );
-
-    // @ts-expect-error
-    expect(() => createSourceEventStream(schema)).to.throw(
-      'Must provide document.',
-    );
   });
 
   it('resolves to an error if schema does not support subscriptions', async () => {
