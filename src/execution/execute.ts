@@ -206,8 +206,6 @@ export interface ExecutionArgs {
  * a GraphQLError will be thrown immediately explaining the invalid input.
  */
 export function execute(args: ExecutionArgs): PromiseOrValue<ExecutionResult> {
-  const { rootValue } = args;
-
   // If a valid execution context cannot be created due to incorrect arguments,
   // a "Response" with only errors is returned.
   const exeContext = buildExecutionContext(args);
@@ -230,7 +228,7 @@ export function execute(args: ExecutionArgs): PromiseOrValue<ExecutionResult> {
   // in this case is the entire response.
   try {
     const { operation } = exeContext;
-    const result = executeOperation(exeContext, operation, rootValue);
+    const result = executeOperation(exeContext, operation);
     if (isPromise(result)) {
       return result.then(
         (data) => buildResponse(data, exeContext.collectedErrors.errors),
@@ -394,7 +392,6 @@ export function buildExecutionContext(
 function executeOperation(
   exeContext: ExecutionContext,
   operation: OperationDefinitionNode,
-  rootValue: unknown,
 ): PromiseOrValue<ObjMap<unknown> | null> {
   const rootType = exeContext.schema.getRootType(operation.operation);
   if (rootType == null) {
@@ -412,6 +409,8 @@ function executeOperation(
     operation.selectionSet,
   );
   const path = undefined;
+
+  const { rootValue } = exeContext;
 
   switch (operation.operation) {
     case OperationTypeNode.QUERY:
