@@ -1,4 +1,3 @@
-import { devAssert } from '../jsutils/devAssert';
 import { inspect } from '../jsutils/inspect';
 import { invariant } from '../jsutils/invariant';
 import { keyMap } from '../jsutils/keyMap';
@@ -111,11 +110,6 @@ export function extendSchema(
   options?: Options,
 ): GraphQLSchema {
   assertSchema(schema);
-
-  devAssert(
-    documentAST != null && documentAST.kind === Kind.DOCUMENT,
-    'Must provide valid Document AST.',
-  );
 
   if (options?.assumeValid !== true && options?.assumeValidSDL !== true) {
     assertValidSDLExtension(documentAST, schema);
