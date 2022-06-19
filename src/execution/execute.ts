@@ -370,8 +370,9 @@ export function buildExecutionContext(
 function executeOperation(
   exeContext: ExecutionContext,
 ): PromiseOrValue<ObjMap<unknown>> {
-  const { operation } = exeContext;
-  const rootType = exeContext.schema.getRootType(operation.operation);
+  const { operation, schema, fragments, variableValues, rootValue } =
+    exeContext;
+  const rootType = schema.getRootType(operation.operation);
   if (rootType == null) {
     throw new GraphQLError(
       `Schema is not configured to execute ${operation.operation} operation.`,
@@ -380,15 +381,13 @@ function executeOperation(
   }
 
   const rootFields = collectFields(
-    exeContext.schema,
-    exeContext.fragments,
-    exeContext.variableValues,
+    schema,
+    fragments,
+    variableValues,
     rootType,
     operation.selectionSet,
   );
   const path = undefined;
-
-  const { rootValue } = exeContext;
 
   switch (operation.operation) {
     case OperationTypeNode.QUERY:
