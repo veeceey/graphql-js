@@ -88,7 +88,7 @@ export interface ParseOptions {
    * in the source that they correspond to. This configuration flag
    * disables that behavior for performance or testing.
    */
-  noLocation?: boolean;
+  noLocation?: boolean | undefined;
 
   /**
    * Parser CPU and memory usage is linear to the number of tokens in a document
@@ -114,7 +114,7 @@ export interface ParseOptions {
    * }
    * ```
    */
-  allowLegacyFragmentVariables?: boolean;
+  allowLegacyFragmentVariables?: boolean | undefined;
 
   /**
    * You may override the Lexer class used to lex the source; this is used by
@@ -143,7 +143,7 @@ export interface ParseOptions {
    * Note: this feature is experimental and may change or be removed in the
    * future.
    */
-  experimentalClientControlledNullability?: boolean;
+  experimentalClientControlledNullability?: boolean | undefined;
 }
 
 /**
@@ -1591,7 +1591,10 @@ export class Parser {
    * location object, used to identify the place in the source that created a
    * given parsed object.
    */
-  node<T extends { loc?: Location }>(startToken: Token, node: T): T {
+  node<T extends { loc?: Location | undefined }>(
+    startToken: Token,
+    node: T,
+  ): T {
     if (this._options.noLocation !== true) {
       node.loc = new Location(
         startToken,
