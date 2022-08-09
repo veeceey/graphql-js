@@ -436,7 +436,7 @@ function executeFieldsSerially(
   fields: Map<string, ReadonlyArray<FieldNode>>,
 ): PromiseOrValue<ObjMap<unknown>> {
   return promiseReduce(
-    fields.entries(),
+    fields,
     (results, [responseName, fieldNodes]) => {
       const fieldPath = addPath(path, responseName, parentType.name);
       const result = executeField(
@@ -477,7 +477,7 @@ function executeFields(
   let containsPromise = false;
 
   try {
-    for (const [responseName, fieldNodes] of fields.entries()) {
+    for (const [responseName, fieldNodes] of fields) {
       const fieldPath = addPath(path, responseName, parentType.name);
       const result = executeField(
         exeContext,
@@ -1290,7 +1290,9 @@ function executeSubscription(
     rootType,
     operation.selectionSet,
   );
-  const [responseName, fieldNodes] = [...rootFields.entries()][0];
+
+  const firstRootField = rootFields.entries().next().value;
+  const [responseName, fieldNodes] = firstRootField;
   const fieldName = fieldNodes[0].name.value;
   const fieldDef = schema.getField(rootType, fieldName);
 
