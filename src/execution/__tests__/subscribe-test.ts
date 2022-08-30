@@ -33,6 +33,10 @@ const EmailType = new GraphQLObjectType({
   fields: {
     from: { type: GraphQLString },
     subject: { type: GraphQLString },
+    asyncSubject: {
+      type: GraphQLString,
+      resolve: (email) => Promise.resolve(email.subject),
+    },
     message: { type: GraphQLString },
     unread: { type: GraphQLBoolean },
   },
@@ -84,13 +88,19 @@ const emailSchema = new GraphQLSchema({
   }),
 });
 
-function createSubscription(pubsub: SimplePubSub<Email>) {
+function createSubscription(
+  pubsub: SimplePubSub<Email>,
+  variableValues?: { readonly [variable: string]: unknown },
+) {
   const document = parse(`
-    subscription ($priority: Int = 0) {
+    subscription ($priority: Int = 0, $asyncResolver: Boolean = false) {
       importantEmail(priority: $priority) {
         email {
           from
           subject
+          ... @include(if: $asyncResolver) {
+            asyncSubject
+          }
         }
         inbox {
           unread
@@ -124,7 +134,12 @@ function createSubscription(pubsub: SimplePubSub<Email>) {
     }),
   };
 
-  return subscribe({ schema: emailSchema, document, rootValue: data });
+  return subscribe({
+    schema: emailSchema,
+    document,
+    rootValue: data,
+    variableValues,
+  });
 }
 
 const DummyQueryType = new GraphQLObjectType({
@@ -547,6 +562,45 @@ describe('Subscription Publish Phase', () => {
 
     expect(await payload1).to.deep.equal(expectedPayload);
     expect(await payload2).to.deep.equal(expectedPayload);
+  });
+
+  it('produces a payload when queried fields are async', async () => {
+    const pubsub = new SimplePubSub<Email>();
+
+    const subscription = createSubscription(pubsub, { asyncResolver: true });
+    assert(isAsyncIterable(subscription));
+
+    expect(
+      pubsub.emit({
+        from: 'yuzhi@graphql.org',
+        subject: 'Alright',
+        message: 'Tests are good',
+        unread: true,
+      }),
+    ).to.equal(true);
+
+    expect(await subscription.next()).to.deep.equal({
+      done: false,
+      value: {
+        data: {
+          importantEmail: {
+            email: {
+              from: 'yuzhi@graphql.org',
+              subject: 'Alright',
+              asyncSubject: 'Alright',
+            },
+            inbox: {
+              unread: 1,
+              total: 2,
+            },
+          },
+        },
+      },
+    });
+    expect(await subscription.return()).to.deep.equal({
+      done: true,
+      value: undefined,
+    });
   });
 
   it('produces a payload per subscription event', async () => {

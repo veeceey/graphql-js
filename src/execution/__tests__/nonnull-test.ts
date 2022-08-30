@@ -5,6 +5,7 @@ import { expectJSON } from '../../__testUtils__/expectJSON';
 import { resolveOnNextTick } from '../../__testUtils__/resolveOnNextTick';
 
 import { invariant } from '../../jsutils/invariant';
+import type { PromiseOrValue } from '../../jsutils/PromiseOrValue';
 
 import { parse } from '../../language/parser';
 
@@ -112,7 +113,7 @@ const schema = buildSchema(`
 function executeQuery(
   query: string,
   rootValue: unknown,
-): ExecutionResult | Promise<ExecutionResult> {
+): PromiseOrValue<ExecutionResult> {
   return execute({ schema, document: parse(query), rootValue });
 }
 
