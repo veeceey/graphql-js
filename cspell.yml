@@ -26,6 +26,7 @@ overrides:
       - tada
       - Graphile
 
+validateDirectives: true
 ignoreRegExpList:
   - u\{[0-9a-f]{1,8}\}
 
