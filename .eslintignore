@@ -4,6 +4,7 @@
 /node_modules
 /reports
 /npmDist
+/npmEsmDist
 /denoDist
 /websiteDist
 /website
