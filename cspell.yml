@@ -25,6 +25,7 @@ overrides:
       - URQL
       - tada
       - Graphile
+      - esbuild
 
 validateDirectives: true
 ignoreRegExpList:
