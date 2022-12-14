@@ -563,21 +563,26 @@ function executeField(
 
     const result = resolveFn(source, args, contextValue, info);
 
-    let completed;
     if (isPromise(result)) {
-      completed = result.then((resolved) =>
+      const completed = result.then((resolved) =>
         completeValue(exeContext, returnType, fieldNodes, info, path, resolved),
       );
-    } else {
-      completed = completeValue(
-        exeContext,
-        returnType,
-        fieldNodes,
-        info,
-        path,
-        result,
-      );
+      // Note: we don't rely on a `catch` method, but we do expect "thenable"
+      // to take a second callback for the error case.
+      return completed.then(undefined, (rawError) => {
+        const error = locatedError(rawError, fieldNodes, pathToArray(path));
+        return handleFieldError(error, returnType, path, exeContext);
+      });
     }
+
+    const completed = completeValue(
+      exeContext,
+      returnType,
+      fieldNodes,
+      info,
+      path,
+      result,
+    );
 
     if (isPromise(completed)) {
       // Note: we don't rely on a `catch` method, but we do expect "thenable"
@@ -873,29 +878,32 @@ function completeListItemValue(
   info: GraphQLResolveInfo,
   itemPath: Path,
 ): boolean {
+  if (isPromise(item)) {
+    const completedItem = item.then((resolved) =>
+      completeValue(exeContext, itemType, fieldNodes, info, itemPath, resolved),
+    );
+
+    // Note: we don't rely on a `catch` method, but we do expect "thenable"
+    // to take a second callback for the error case.
+    completedResults.push(
+      completedItem.then(undefined, (rawError) => {
+        const error = locatedError(rawError, fieldNodes, pathToArray(itemPath));
+        return handleFieldError(error, itemType, itemPath, exeContext);
+      }),
+    );
+
+    return true;
+  }
+
   try {
-    let completedItem;
-    if (isPromise(item)) {
-      completedItem = item.then((resolved) =>
-        completeValue(
-          exeContext,
-          itemType,
-          fieldNodes,
-          info,
-          itemPath,
-          resolved,
-        ),
-      );
-    } else {
-      completedItem = completeValue(
-        exeContext,
-        itemType,
-        fieldNodes,
-        info,
-        itemPath,
-        item,
-      );
-    }
+    const completedItem = completeValue(
+      exeContext,
+      itemType,
+      fieldNodes,
+      info,
+      itemPath,
+      item,
+    );
 
     if (isPromise(completedItem)) {
       // Note: we don't rely on a `catch` method, but we do expect "thenable"
