@@ -564,15 +564,14 @@ function executeField(
     const result = resolveFn(source, args, contextValue, info);
 
     if (isPromise(result)) {
-      const completed = result.then((resolved) =>
-        completeValue(exeContext, returnType, fieldNodes, info, path, resolved),
+      return completePromisedValue(
+        exeContext,
+        returnType,
+        fieldNodes,
+        info,
+        path,
+        result,
       );
-      // Note: we don't rely on a `catch` method, but we do expect "thenable"
-      // to take a second callback for the error case.
-      return completed.then(undefined, (rawError) => {
-        const error = locatedError(rawError, fieldNodes, pathToArray(path));
-        return handleFieldError(error, returnType, path, exeContext);
-      });
     }
 
     const completed = completeValue(
@@ -751,6 +750,36 @@ function completeValue(
   );
 }
 
+async function completePromisedValue(
+  exeContext: ExecutionContext,
+  returnType: GraphQLOutputType,
+  fieldNodes: ReadonlyArray<FieldNode>,
+  info: GraphQLResolveInfo,
+  path: Path,
+  result: Promise<unknown>,
+): Promise<unknown> {
+  try {
+    const resolved = await result;
+    let completed = completeValue(
+      exeContext,
+      returnType,
+      fieldNodes,
+      info,
+      path,
+      resolved,
+    );
+    if (isPromise(completed)) {
+      // see: https://github.com/tc39/proposal-faster-promise-adoption
+      // it is faster to await a promise prior to returning it from an async function
+      completed = await completed;
+    }
+    return completed;
+  } catch (rawError) {
+    const error = locatedError(rawError, fieldNodes, pathToArray(path));
+    return handleFieldError(error, returnType, path, exeContext);
+  }
+}
+
 /**
  * Complete a async iterator value by completing the result and calling
  * recursively until all the results are completed.
@@ -879,17 +908,15 @@ function completeListItemValue(
   itemPath: Path,
 ): boolean {
   if (isPromise(item)) {
-    const completedItem = item.then((resolved) =>
-      completeValue(exeContext, itemType, fieldNodes, info, itemPath, resolved),
-    );
-
-    // Note: we don't rely on a `catch` method, but we do expect "thenable"
-    // to take a second callback for the error case.
     completedResults.push(
-      completedItem.then(undefined, (rawError) => {
-        const error = locatedError(rawError, fieldNodes, pathToArray(itemPath));
-        return handleFieldError(error, itemType, itemPath, exeContext);
-      }),
+      completePromisedValue(
+        exeContext,
+        itemType,
+        fieldNodes,
+        info,
+        itemPath,
+        item,
+      ),
     );
 
     return true;
