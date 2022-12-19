@@ -1281,9 +1281,7 @@ export function subscribe(
 function mapSourceToResponse(
   exeContext: ExecutionContext,
   resultOrStream: ExecutionResult | AsyncIterable<unknown>,
-): PromiseOrValue<
-  AsyncGenerator<ExecutionResult, void, void> | ExecutionResult
-> {
+): AsyncGenerator<ExecutionResult, void, void> | ExecutionResult {
   if (!isAsyncIterable(resultOrStream)) {
     return resultOrStream;
   }
