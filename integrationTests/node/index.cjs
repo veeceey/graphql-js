@@ -2,7 +2,7 @@ const assert = require('assert');
 const { readFileSync } = require('fs');
 
 const { graphqlSync } = require('graphql');
-const { buildSchema } = require('graphql/utilities');
+const { astFromValue, buildSchema } = require('graphql/utilities');
 const { version } = require('graphql/version');
 
 assert.deepStrictEqual(
@@ -12,7 +12,7 @@ assert.deepStrictEqual(
 
 const schema = buildSchema('type Query { hello: String }');
 
-const result = graphqlSync({
+let result = graphqlSync({
   schema,
   source: '{ hello }',
   rootValue: { hello: 'world' },
@@ -24,3 +24,11 @@ assert.deepStrictEqual(result, {
     hello: 'world',
   },
 });
+
+/**
+ * The below test triggers a call to the `invariant` utility (by passing
+ * an invalid value to astFromValue). This ensures that the
+ * `inlineInvariant` function called by our build script works correctly.
+ **/
+
+assert.throws(() => astFromValue(true, undefined), 'Unexpected input type: ');
