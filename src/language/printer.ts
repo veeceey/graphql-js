@@ -397,7 +397,7 @@ function wrap(
 }
 
 function indent(str: string): string {
-  return wrap('  ', str.replace(/\n/g, '\n  '));
+  return wrap('  ', str.replaceAll('\n', '\n  '));
 }
 
 function hasMultilineItems(maybeArray: Maybe<ReadonlyArray<string>>): boolean {
