@@ -1,7 +1,5 @@
 import { didYouMean } from '../../jsutils/didYouMean.js';
 import { inspect } from '../../jsutils/inspect.js';
-import { keyMap } from '../../jsutils/keyMap.js';
-import type { ObjMap } from '../../jsutils/ObjMap.js';
 import { suggestionList } from '../../jsutils/suggestionList.js';
 
 import { GraphQLError } from '../../error/GraphQLError.js';
@@ -67,9 +65,11 @@ export function ValuesOfCorrectTypeRule(
         return false; // Don't traverse further.
       }
       // Ensure every required field exists.
-      const fieldNodeMap = keyMap(node.fields, (field) => field.name.value);
+      const fieldNodeMap = new Map(
+        node.fields.map((field) => [field.name.value, field]),
+      );
       for (const fieldDef of Object.values(type.getFields())) {
-        const fieldNode = fieldNodeMap[fieldDef.name];
+        const fieldNode = fieldNodeMap.get(fieldDef.name);
         if (!fieldNode && isRequiredInputField(fieldDef)) {
           const typeStr = inspect(fieldDef.type);
           context.reportError(
@@ -183,10 +183,9 @@ function validateOneOfInputObject(
   context: ValidationContext,
   node: ObjectValueNode,
   type: GraphQLInputObjectType,
-  fieldNodeMap: ObjMap<ObjectFieldNode>,
+  fieldNodeMap: Map<string, ObjectFieldNode>,
 ): void {
-  const keys = Object.keys(fieldNodeMap);
-  const isNotExactlyOneField = keys.length !== 1;
+  const isNotExactlyOneField = fieldNodeMap.size !== 1;
 
   if (isNotExactlyOneField) {
     context.reportError(
@@ -198,12 +197,13 @@ function validateOneOfInputObject(
     return;
   }
 
-  const value = fieldNodeMap[keys[0]]?.value;
-  const isNullLiteral = !value || value.kind === Kind.NULL;
+  const value = (fieldNodeMap.values().next().value as ObjectFieldNode).value;
+  const isNullLiteral = value.kind === Kind.NULL;
 
   if (isNullLiteral) {
+    const key = fieldNodeMap.keys().next().value as string;
     context.reportError(
-      new GraphQLError(`Field "${type.name}.${keys[0]}" must be non-null.`, {
+      new GraphQLError(`Field "${type.name}.${key}" must be non-null.`, {
         nodes: [node],
       }),
     );

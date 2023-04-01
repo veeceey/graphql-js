@@ -134,7 +134,7 @@ function collectFieldsImpl(
         visitedFragmentNames.add(fragName);
         const fragment = fragments[fragName];
         if (
-          !fragment ||
+          fragment == null ||
           !doesFragmentConditionMatch(schema, fragment, runtimeType)
         ) {
           continue;

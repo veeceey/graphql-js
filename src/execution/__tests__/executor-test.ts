@@ -1106,11 +1106,11 @@ describe('Execute: Handles basic execution tasks', () => {
       }
     }
 
-    const SpecialType = new GraphQLObjectType({
+    const SpecialType = new GraphQLObjectType<Special, { async: boolean }>({
       name: 'SpecialType',
       isTypeOf(obj, context) {
         const result = obj instanceof Special;
-        return context?.async ? Promise.resolve(result) : result;
+        return context.async ? Promise.resolve(result) : result;
       },
       fields: { value: { type: GraphQLString } },
     });
@@ -1129,7 +1129,12 @@ describe('Execute: Handles basic execution tasks', () => {
       specials: [new Special('foo'), new NotSpecial('bar')],
     };
 
-    const result = executeSync({ schema, document, rootValue });
+    const result = executeSync({
+      schema,
+      document,
+      rootValue,
+      contextValue: { async: false },
+    });
     expectJSON(result).toDeepEqual({
       data: {
         specials: [{ value: 'foo' }, null],
@@ -1144,12 +1149,11 @@ describe('Execute: Handles basic execution tasks', () => {
       ],
     });
 
-    const contextValue = { async: true };
     const asyncResult = await execute({
       schema,
       document,
       rootValue,
-      contextValue,
+      contextValue: { async: true },
     });
     expect(asyncResult).to.deep.equal(result);
   });

@@ -2,7 +2,7 @@ import { inspect } from './inspect.js';
 
 /* c8 ignore next 3 */
 const isProduction =
-  globalThis.process &&
+  globalThis.process != null &&
   // eslint-disable-next-line no-undef
   process.env.NODE_ENV === 'production';
 
