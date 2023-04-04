@@ -68,11 +68,11 @@ export function collectSubfields(
   fragments: ObjMap<FragmentDefinitionNode>,
   variableValues: { [variable: string]: unknown },
   returnType: GraphQLObjectType,
-  fieldNodes: FieldGroup,
+  fieldGroup: FieldGroup,
 ): Map<string, FieldGroup> {
   const subFieldNodes = new AccumulatorMap<string, FieldNode>();
   const visitedFragmentNames = new Set<string>();
-  for (const node of fieldNodes) {
+  for (const node of fieldGroup) {
     if (node.selectionSet) {
       collectFieldsImpl(
         schema,
