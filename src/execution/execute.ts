@@ -599,14 +599,14 @@ function executeField(
       // Note: we don't rely on a `catch` method, but we do expect "thenable"
       // to take a second callback for the error case.
       return completed.then(undefined, (rawError) => {
-        const error = locatedError(rawError, fieldGroup, pathToArray(path));
-        return handleFieldError(error, returnType, path, exeContext);
+        handleFieldError(rawError, exeContext, returnType, fieldGroup, path);
+        return null;
       });
     }
     return completed;
   } catch (rawError) {
-    const error = locatedError(rawError, fieldGroup, pathToArray(path));
-    return handleFieldError(error, returnType, path, exeContext);
+    handleFieldError(rawError, exeContext, returnType, fieldGroup, path);
+    return null;
   }
 }
 
@@ -638,11 +638,14 @@ export function buildResolveInfo(
 }
 
 function handleFieldError(
-  error: GraphQLError,
-  returnType: GraphQLOutputType,
-  path: Path,
+  rawError: unknown,
   exeContext: ExecutionContext,
-): null {
+  returnType: GraphQLOutputType,
+  fieldGroup: FieldGroup,
+  path: Path,
+): void {
+  const error = locatedError(rawError, fieldGroup, pathToArray(path));
+
   // If the field type is non-nullable, then it is resolved without any
   // protection from errors, however it still properly locates the error.
   if (isNonNullType(returnType)) {
@@ -652,7 +655,6 @@ function handleFieldError(
   // Otherwise, error protection is applied, logging the error and resolving
   // a null value for this field if one is encountered.
   exeContext.collectedErrors.add(error, path);
-  return null;
 }
 
 /**
@@ -785,8 +787,8 @@ async function completePromisedValue(
     }
     return completed;
   } catch (rawError) {
-    const error = locatedError(rawError, fieldGroup, pathToArray(path));
-    return handleFieldError(error, returnType, path, exeContext);
+    handleFieldError(rawError, exeContext, returnType, fieldGroup, path);
+    return null;
   }
 }
 
@@ -816,9 +818,8 @@ async function completeAsyncIteratorValue(
         break;
       }
     } catch (rawError) {
+      handleFieldError(rawError, exeContext, itemType, fieldGroup, itemPath);
       completedResults.push(null);
-      const error = locatedError(rawError, fieldGroup, pathToArray(itemPath));
-      handleFieldError(error, itemType, itemPath, exeContext);
       break;
     }
 
@@ -947,12 +948,14 @@ function completeListItemValue(
       // to take a second callback for the error case.
       completedResults.push(
         completedItem.then(undefined, (rawError) => {
-          const error = locatedError(
+          handleFieldError(
             rawError,
+            exeContext,
+            itemType,
             fieldGroup,
-            pathToArray(itemPath),
+            itemPath,
           );
-          return handleFieldError(error, itemType, itemPath, exeContext);
+          return null;
         }),
       );
 
@@ -961,14 +964,8 @@ function completeListItemValue(
 
     completedResults.push(completedItem);
   } catch (rawError) {
-    const error = locatedError(rawError, fieldGroup, pathToArray(itemPath));
-    const handledError = handleFieldError(
-      error,
-      itemType,
-      itemPath,
-      exeContext,
-    );
-    completedResults.push(handledError);
+    handleFieldError(rawError, exeContext, itemType, fieldGroup, itemPath);
+    completedResults.push(null);
   }
 
   return false;
