@@ -41,18 +41,18 @@ export function collectFields(
   variableValues: { [variable: string]: unknown },
   runtimeType: GraphQLObjectType,
   selectionSet: SelectionSetNode,
-): Map<string, FieldGroup> {
-  const fields = new AccumulatorMap<string, FieldNode>();
+): GroupedFieldSet {
+  const groupedFieldSet = new AccumulatorMap<string, FieldNode>();
   collectFieldsImpl(
     schema,
     fragments,
     variableValues,
     runtimeType,
     selectionSet,
-    fields,
+    groupedFieldSet,
     new Set(),
   );
-  return fields;
+  return groupedFieldSet;
 }
 
 /**
@@ -71,8 +71,8 @@ export function collectSubfields(
   variableValues: { [variable: string]: unknown },
   returnType: GraphQLObjectType,
   fieldGroup: FieldGroup,
-): Map<string, FieldGroup> {
-  const subFieldNodes = new AccumulatorMap<string, FieldNode>();
+): GroupedFieldSet {
+  const subGroupedFieldSet = new AccumulatorMap<string, FieldNode>();
   const visitedFragmentNames = new Set<string>();
   for (const node of fieldGroup) {
     if (node.selectionSet) {
@@ -82,12 +82,12 @@ export function collectSubfields(
         variableValues,
         returnType,
         node.selectionSet,
-        subFieldNodes,
+        subGroupedFieldSet,
         visitedFragmentNames,
       );
     }
   }
-  return subFieldNodes;
+  return subGroupedFieldSet;
 }
 
 // eslint-disable-next-line max-params
@@ -97,7 +97,7 @@ function collectFieldsImpl(
   variableValues: { [variable: string]: unknown },
   runtimeType: GraphQLObjectType,
   selectionSet: SelectionSetNode,
-  fields: AccumulatorMap<string, FieldNode>,
+  groupedFieldSet: AccumulatorMap<string, FieldNode>,
   visitedFragmentNames: Set<string>,
 ): void {
   for (const selection of selectionSet.selections) {
@@ -106,7 +106,7 @@ function collectFieldsImpl(
         if (!shouldIncludeNode(variableValues, selection)) {
           continue;
         }
-        fields.add(getFieldEntryKey(selection), selection);
+        groupedFieldSet.add(getFieldEntryKey(selection), selection);
         break;
       }
       case Kind.INLINE_FRAGMENT: {
@@ -122,7 +122,7 @@ function collectFieldsImpl(
           variableValues,
           runtimeType,
           selection.selectionSet,
-          fields,
+          groupedFieldSet,
           visitedFragmentNames,
         );
         break;
@@ -149,7 +149,7 @@ function collectFieldsImpl(
           variableValues,
           runtimeType,
           fragment.selectionSet,
-          fields,
+          groupedFieldSet,
           visitedFragmentNames,
         );
         break;

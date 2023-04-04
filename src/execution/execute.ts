@@ -397,7 +397,7 @@ function executeOperation(
     );
   }
 
-  const rootFields = collectFields(
+  const groupedFieldSet = collectFields(
     schema,
     fragments,
     variableValues,
@@ -408,19 +408,31 @@ function executeOperation(
 
   switch (operation.operation) {
     case OperationTypeNode.QUERY:
-      return executeFields(exeContext, rootType, rootValue, path, rootFields);
+      return executeFields(
+        exeContext,
+        rootType,
+        rootValue,
+        path,
+        groupedFieldSet,
+      );
     case OperationTypeNode.MUTATION:
       return executeFieldsSerially(
         exeContext,
         rootType,
         rootValue,
         path,
-        rootFields,
+        groupedFieldSet,
       );
     case OperationTypeNode.SUBSCRIPTION:
       // TODO: deprecate `subscribe` and move all logic here
       // Temporary solution until we finish merging execute and subscribe together
-      return executeFields(exeContext, rootType, rootValue, path, rootFields);
+      return executeFields(
+        exeContext,
+        rootType,
+        rootValue,
+        path,
+        groupedFieldSet,
+      );
   }
 }
 
@@ -1153,9 +1165,19 @@ function collectAndExecuteSubfields(
   result: unknown,
 ): PromiseOrValue<ObjMap<unknown>> {
   // Collect sub-fields to execute to complete this value.
-  const subFieldNodes = collectSubfields(exeContext, returnType, fieldGroup);
+  const subGroupedFieldSet = collectSubfields(
+    exeContext,
+    returnType,
+    fieldGroup,
+  );
 
-  return executeFields(exeContext, returnType, result, path, subFieldNodes);
+  return executeFields(
+    exeContext,
+    returnType,
+    result,
+    path,
+    subGroupedFieldSet,
+  );
 }
 
 /**
@@ -1367,7 +1389,7 @@ function executeSubscription(
     );
   }
 
-  const rootFields = collectFields(
+  const groupedFieldSet = collectFields(
     schema,
     fragments,
     variableValues,
@@ -1375,7 +1397,7 @@ function executeSubscription(
     operation.selectionSet,
   );
 
-  const firstRootField = rootFields.entries().next().value;
+  const firstRootField = groupedFieldSet.entries().next().value;
   const [responseName, fieldGroup] = firstRootField;
   const fieldName = fieldGroup[0].name.value;
   const fieldDef = schema.getField(rootType, fieldName);
