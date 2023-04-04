@@ -24,6 +24,8 @@ import { getDirectiveValues } from './values.js';
 
 export type FieldGroup = ReadonlyArray<FieldNode>;
 
+export type GroupedFieldSet = Map<string, FieldGroup>;
+
 /**
  * Given a selectionSet, collects all of the fields and returns them.
  *

@@ -46,7 +46,7 @@ import {
 import type { GraphQLSchema } from '../type/schema.js';
 import { assertValidSchema } from '../type/validate.js';
 
-import type { FieldGroup } from './collectFields.js';
+import type { FieldGroup, GroupedFieldSet } from './collectFields.js';
 import {
   collectFields,
   collectSubfields as _collectSubfields,
@@ -433,7 +433,7 @@ function executeFieldsSerially(
   parentType: GraphQLObjectType,
   sourceValue: unknown,
   path: Path | undefined,
-  fields: Map<string, FieldGroup>,
+  fields: GroupedFieldSet,
 ): PromiseOrValue<ObjMap<unknown>> {
   return promiseReduce(
     fields,
