@@ -22,6 +22,8 @@ import { typeFromAST } from '../utilities/typeFromAST.js';
 
 import { getDirectiveValues } from './values.js';
 
+export type FieldGroup = ReadonlyArray<FieldNode>;
+
 /**
  * Given a selectionSet, collects all of the fields and returns them.
  *
@@ -37,7 +39,7 @@ export function collectFields(
   variableValues: { [variable: string]: unknown },
   runtimeType: GraphQLObjectType,
   selectionSet: SelectionSetNode,
-): Map<string, ReadonlyArray<FieldNode>> {
+): Map<string, FieldGroup> {
   const fields = new AccumulatorMap<string, FieldNode>();
   collectFieldsImpl(
     schema,
@@ -66,8 +68,8 @@ export function collectSubfields(
   fragments: ObjMap<FragmentDefinitionNode>,
   variableValues: { [variable: string]: unknown },
   returnType: GraphQLObjectType,
-  fieldNodes: ReadonlyArray<FieldNode>,
-): Map<string, ReadonlyArray<FieldNode>> {
+  fieldNodes: FieldGroup,
+): Map<string, FieldGroup> {
   const subFieldNodes = new AccumulatorMap<string, FieldNode>();
   const visitedFragmentNames = new Set<string>();
   for (const node of fieldNodes) {
