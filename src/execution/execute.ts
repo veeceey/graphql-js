@@ -802,7 +802,7 @@ async function completeAsyncIteratorValue(
   fieldGroup: FieldGroup,
   info: GraphQLResolveInfo,
   path: Path,
-  iterator: AsyncIterator<unknown>,
+  asyncIterator: AsyncIterator<unknown>,
 ): Promise<ReadonlyArray<unknown>> {
   let containsPromise = false;
   const completedResults: Array<unknown> = [];
@@ -813,7 +813,7 @@ async function completeAsyncIteratorValue(
     let iteration;
     try {
       // eslint-disable-next-line no-await-in-loop
-      iteration = await iterator.next();
+      iteration = await asyncIterator.next();
       if (iteration.done) {
         break;
       }
@@ -856,7 +856,7 @@ function completeListValue(
   const itemType = returnType.ofType;
 
   if (isAsyncIterable(result)) {
-    const iterator = result[Symbol.asyncIterator]();
+    const asyncIterator = result[Symbol.asyncIterator]();
 
     return completeAsyncIteratorValue(
       exeContext,
@@ -864,7 +864,7 @@ function completeListValue(
       fieldGroup,
       info,
       path,
-      iterator,
+      asyncIterator,
     );
   }
 
