@@ -818,9 +818,7 @@ async function completeAsyncIteratorValue(
         break;
       }
     } catch (rawError) {
-      handleFieldError(rawError, exeContext, itemType, fieldGroup, itemPath);
-      completedResults.push(null);
-      break;
+      throw locatedError(rawError, fieldGroup, pathToArray(path));
     }
 
     if (
