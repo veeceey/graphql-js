@@ -680,7 +680,7 @@ describe('Type System Printer', () => {
       schema {
         query: Query
       }
-      
+
       """"""
       directive @someDirective(
         """"""

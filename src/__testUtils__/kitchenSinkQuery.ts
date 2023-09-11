@@ -15,7 +15,7 @@ query queryName(
           ...frag @onFragmentSpread
         }
       }
-      
+
       field3!
       field4?
       requiredField5: field5!
