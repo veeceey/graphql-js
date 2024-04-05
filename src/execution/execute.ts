@@ -218,25 +218,54 @@ export function execute(args: ExecutionArgs): PromiseOrValue<ExecutionResult> {
     return { errors: exeContext };
   }
 
-  return executeImpl(exeContext);
+  return executeOperation(exeContext);
 }
 
-function executeImpl(
+/**
+ * Implements the "Executing operations" section of the spec.
+ *
+ * Returns a Promise that will eventually resolve to the data described by
+ * The "Response" section of the GraphQL specification.
+ *
+ * If errors are encountered while executing a GraphQL field, only that
+ * field and its descendants will be omitted, and sibling fields will still
+ * be executed. An execution which encounters errors will still result in a
+ * resolved Promise.
+ *
+ * Errors from sub-fields of a NonNull type may propagate to the top level,
+ * at which point we still log the error and null the parent field, which
+ * in this case is the entire response.
+ */
+function executeOperation(
   exeContext: ExecutionContext,
 ): PromiseOrValue<ExecutionResult> {
-  // Return a Promise that will eventually resolve to the data described by
-  // The "Response" section of the GraphQL specification.
-  //
-  // If errors are encountered while executing a GraphQL field, only that
-  // field and its descendants will be omitted, and sibling fields will still
-  // be executed. An execution which encounters errors will still result in a
-  // resolved Promise.
-  //
-  // Errors from sub-fields of a NonNull type may propagate to the top level,
-  // at which point we still log the error and null the parent field, which
-  // in this case is the entire response.
   try {
-    const result = executeOperation(exeContext);
+    const { operation, schema, fragments, variableValues, rootValue } =
+      exeContext;
+    const rootType = schema.getRootType(operation.operation);
+    if (rootType == null) {
+      throw new GraphQLError(
+        `Schema is not configured to execute ${operation.operation} operation.`,
+        { nodes: operation },
+      );
+    }
+
+    const groupedFieldSet = collectFields(
+      schema,
+      fragments,
+      variableValues,
+      rootType,
+      operation.selectionSet,
+    );
+
+    const result = executeRootGroupedFieldSet(
+      exeContext,
+      operation.operation,
+      rootType,
+      rootValue,
+      groupedFieldSet,
+    );
+
     if (isPromise(result)) {
       return result.then(
         (data) => buildResponse(data, exeContext.collectedErrors.errors),
@@ -381,38 +410,20 @@ function buildPerEventExecutionContext(
   };
 }
 
-/**
- * Implements the "Executing operations" section of the spec.
- */
-function executeOperation(
+function executeRootGroupedFieldSet(
   exeContext: ExecutionContext,
+  operation: OperationTypeNode,
+  rootType: GraphQLObjectType,
+  rootValue: unknown,
+  groupedFieldSet: GroupedFieldSet,
 ): PromiseOrValue<ObjMap<unknown>> {
-  const { operation, schema, fragments, variableValues, rootValue } =
-    exeContext;
-  const rootType = schema.getRootType(operation.operation);
-  if (rootType == null) {
-    throw new GraphQLError(
-      `Schema is not configured to execute ${operation.operation} operation.`,
-      { nodes: operation },
-    );
-  }
-
-  const groupedFieldSet = collectFields(
-    schema,
-    fragments,
-    variableValues,
-    rootType,
-    operation.selectionSet,
-  );
-  const path = undefined;
-
-  switch (operation.operation) {
+  switch (operation) {
     case OperationTypeNode.QUERY:
       return executeFields(
         exeContext,
         rootType,
         rootValue,
-        path,
+        undefined,
         groupedFieldSet,
       );
     case OperationTypeNode.MUTATION:
@@ -420,7 +431,7 @@ function executeOperation(
         exeContext,
         rootType,
         rootValue,
-        path,
+        undefined,
         groupedFieldSet,
       );
     case OperationTypeNode.SUBSCRIPTION:
@@ -430,7 +441,7 @@ function executeOperation(
         exeContext,
         rootType,
         rootValue,
-        path,
+        undefined,
         groupedFieldSet,
       );
   }
@@ -1308,7 +1319,7 @@ function mapSourceToResponse(
   // "ExecuteSubscriptionEvent" algorithm, as it is nearly identical to the
   // "ExecuteQuery" algorithm, for which `execute` is also used.
   return mapAsyncIterable(resultOrStream, (payload: unknown) =>
-    executeImpl(buildPerEventExecutionContext(exeContext, payload)),
+    executeOperation(buildPerEventExecutionContext(exeContext, payload)),
   );
 }
 
