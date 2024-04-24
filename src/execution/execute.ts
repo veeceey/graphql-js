@@ -905,12 +905,34 @@ function completeListValue(
     );
   }
 
+  return completeIterableValue(
+    exeContext,
+    itemType,
+    fieldGroup,
+    info,
+    path,
+    result,
+  );
+}
+
+function completeIterableValue(
+  exeContext: ExecutionContext,
+  itemType: GraphQLOutputType,
+  fieldGroup: FieldGroup,
+  info: GraphQLResolveInfo,
+  path: Path,
+  items: Iterable<unknown>,
+): PromiseOrValue<ReadonlyArray<unknown>> {
   // This is specified as a simple map, however we're optimizing the path
   // where the list contains no Promises by avoiding creating another Promise.
   let containsPromise = false;
   const completedResults: Array<unknown> = [];
   let index = 0;
-  for (const item of result) {
+  const iterator = items[Symbol.iterator]();
+  let iteration = iterator.next();
+  while (!iteration.done) {
+    const item = iteration.value;
+
     // No need to modify the info object containing the path,
     // since from here on it is not ever accessed by resolver functions.
     const itemPath = addPath(path, index, undefined);
@@ -942,6 +964,7 @@ function completeListValue(
     }
 
     index++;
+    iteration = iterator.next();
   }
 
   return containsPromise ? Promise.all(completedResults) : completedResults;
