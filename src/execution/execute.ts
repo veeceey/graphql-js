@@ -818,56 +818,67 @@ async function completeAsyncIteratorValue(
   let containsPromise = false;
   const completedResults: Array<unknown> = [];
   let index = 0;
-  // eslint-disable-next-line no-constant-condition
-  while (true) {
-    const itemPath = addPath(path, index, undefined);
-    let iteration;
-    try {
-      // eslint-disable-next-line no-await-in-loop
-      iteration = await asyncIterator.next();
+  const earlyReturn = asyncIterator.return?.bind(asyncIterator);
+  try {
+    // eslint-disable-next-line no-constant-condition
+    while (true) {
+      const itemPath = addPath(path, index, undefined);
+      let iteration;
+      try {
+        // eslint-disable-next-line no-await-in-loop
+        iteration = await asyncIterator.next();
+      } catch (rawError) {
+        throw locatedError(rawError, fieldGroup, pathToArray(path));
+      }
+
+      // TODO: add test case for stream returning done before initialCount
+      /* c8 ignore next 3 */
       if (iteration.done) {
         break;
       }
-    } catch (rawError) {
-      throw locatedError(rawError, fieldGroup, pathToArray(path));
-    }
 
-    // TODO: add test case for stream returning done before initialCount
-    /* c8 ignore next 3 */
-    if (iteration.done) {
-      break;
-    }
-
-    const item = iteration.value;
-    // TODO: add tests for stream backed by asyncIterator that returns a promise
-    /* c8 ignore start */
-    if (isPromise(item)) {
-      completedResults.push(
-        completePromisedListItemValue(
+      const item = iteration.value;
+      // TODO: add tests for stream backed by asyncIterator that returns a promise
+      /* c8 ignore start */
+      if (isPromise(item)) {
+        completedResults.push(
+          completePromisedListItemValue(
+            item,
+            exeContext,
+            itemType,
+            fieldGroup,
+            info,
+            itemPath,
+          ),
+        );
+        containsPromise = true;
+      } else if (
+        /* c8 ignore stop */
+        completeListItemValue(
           item,
+          completedResults,
           exeContext,
           itemType,
           fieldGroup,
           info,
           itemPath,
-        ),
-      );
-      containsPromise = true;
-    } else if (
+        )
+        // TODO: add tests for stream backed by asyncIterator that completes to a promise
+        /* c8 ignore start */
+      ) {
+        containsPromise = true;
+      }
       /* c8 ignore stop */
-      completeListItemValue(
-        item,
-        completedResults,
-        exeContext,
-        itemType,
-        fieldGroup,
-        info,
-        itemPath,
-      )
-    ) {
-      containsPromise = true;
+      index++;
     }
-    index += 1;
+  } catch (error) {
+    if (earlyReturn !== undefined) {
+      earlyReturn().catch(() => {
+        /* c8 ignore next 1 */
+        // ignore error
+      });
+    }
+    throw error;
   }
   return containsPromise ? Promise.all(completedResults) : completedResults;
 }
