@@ -40,7 +40,6 @@
     "testonly": "mocha --full-trace src/**/__tests__/**/*-test.ts",
     "testonly:cover": "c8 npm run testonly",
     "testonly:watch": "npm run testonly -- --watch",
-    "testonly:mutate": "stryker run",
     "prettier": "prettier --cache --cache-strategy metadata --write --list-different .",
     "prettier:check": "prettier --cache --cache-strategy metadata --check .",
     "check:spelling": "cspell --cache --no-progress \"**/*\"",
@@ -52,9 +51,6 @@
     "gitpublish:deno": "bash ./resources/gitpublish.sh deno denoDist"
   },
   "devDependencies": {
-    "@stryker-mutator/core": "6.4.2",
-    "@stryker-mutator/mocha-runner": "6.4.2",
-    "@stryker-mutator/typescript-checker": "6.4.2",
     "@types/chai": "4.3.4",
     "@types/mocha": "10.0.1",
     "@types/node": "18.15.11",
