@@ -74,7 +74,7 @@ export function ValuesOfCorrectTypeRule(
           const typeStr = inspect(fieldDef.type);
           context.reportError(
             new GraphQLError(
-              `Field "${type.name}.${fieldDef.name}" of required type "${typeStr}" was not provided.`,
+              `Field "${type}.${fieldDef.name}" of required type "${typeStr}" was not provided.`,
               { nodes: node },
             ),
           );
@@ -95,7 +95,7 @@ export function ValuesOfCorrectTypeRule(
         );
         context.reportError(
           new GraphQLError(
-            `Field "${node.name.value}" is not defined by type "${parentType.name}".` +
+            `Field "${node.name.value}" is not defined by type "${parentType}".` +
               didYouMean(suggestions),
             { nodes: node },
           ),
@@ -190,7 +190,7 @@ function validateOneOfInputObject(
   if (isNotExactlyOneField) {
     context.reportError(
       new GraphQLError(
-        `OneOf Input Object "${type.name}" must specify exactly one key.`,
+        `OneOf Input Object "${type}" must specify exactly one key.`,
         { nodes: [node] },
       ),
     );
