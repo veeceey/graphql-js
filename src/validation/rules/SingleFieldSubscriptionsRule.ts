@@ -2,16 +2,21 @@ import type { ObjMap } from '../../jsutils/ObjMap.js';
 
 import { GraphQLError } from '../../error/GraphQLError.js';
 
-import type {
-  FragmentDefinitionNode,
-  OperationDefinitionNode,
-} from '../../language/ast.js';
+import type { FieldNode, OperationDefinitionNode } from '../../language/ast.js';
 import { Kind } from '../../language/kinds.js';
 import type { ASTVisitor } from '../../language/visitor.js';
 
+import type {
+  FieldGroup,
+  FragmentDetails,
+} from '../../execution/collectFields.js';
 import { collectFields } from '../../execution/collectFields.js';
 
 import type { ValidationContext } from '../ValidationContext.js';
+
+function toNodes(fieldGroup: FieldGroup): ReadonlyArray<FieldNode> {
+  return fieldGroup.map((fieldDetails) => fieldDetails.node);
+}
 
 /**
  * Subscriptions must only include a non-introspection field.
@@ -35,10 +40,10 @@ export function SingleFieldSubscriptionsRule(
             [variable: string]: any;
           } = Object.create(null);
           const document = context.getDocument();
-          const fragments: ObjMap<FragmentDefinitionNode> = Object.create(null);
+          const fragments: ObjMap<FragmentDetails> = Object.create(null);
           for (const definition of document.definitions) {
             if (definition.kind === Kind.FRAGMENT_DEFINITION) {
-              fragments[definition.name.value] = definition;
+              fragments[definition.name.value] = { definition };
             }
           }
           const groupedFieldSet = collectFields(
@@ -49,9 +54,11 @@ export function SingleFieldSubscriptionsRule(
             node.selectionSet,
           );
           if (groupedFieldSet.size > 1) {
-            const fieldSelectionLists = [...groupedFieldSet.values()];
-            const extraFieldSelectionLists = fieldSelectionLists.slice(1);
-            const extraFieldSelections = extraFieldSelectionLists.flat();
+            const fieldGroups = [...groupedFieldSet.values()];
+            const extraFieldGroups = fieldGroups.slice(1);
+            const extraFieldSelections = extraFieldGroups.flatMap(
+              (fieldGroup) => toNodes(fieldGroup),
+            );
             context.reportError(
               new GraphQLError(
                 operationName != null
@@ -62,14 +69,14 @@ export function SingleFieldSubscriptionsRule(
             );
           }
           for (const fieldGroup of groupedFieldSet.values()) {
-            const fieldName = fieldGroup[0].name.value;
+            const fieldName = toNodes(fieldGroup)[0].name.value;
             if (fieldName.startsWith('__')) {
               context.reportError(
                 new GraphQLError(
                   operationName != null
                     ? `Subscription "${operationName}" must not select an introspection top level field.`
                     : 'Anonymous Subscription must not select an introspection top level field.',
-                  { nodes: fieldGroup },
+                  { nodes: toNodes(fieldGroup) },
                 ),
               );
             }

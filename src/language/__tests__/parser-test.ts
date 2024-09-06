@@ -691,13 +691,32 @@ describe('Parser', () => {
     expect('loc' in result).to.equal(false);
   });
 
-  it('Legacy: allows parsing fragment defined variables', () => {
+  it('allows parsing fragment defined variables', () => {
     const document = 'fragment a($v: Boolean = false) on t { f(v: $v) }';
 
     expect(() =>
-      parse(document, { allowLegacyFragmentVariables: true }),
+      parse(document, { experimentalFragmentArguments: true }),
     ).to.not.throw();
-    expect(() => parse(document)).to.throw('Syntax Error');
+  });
+
+  it('disallows parsing fragment defined variables without experimental flag', () => {
+    const document = 'fragment a($v: Boolean = false) on t { f(v: $v) }';
+
+    expect(() => parse(document)).to.throw();
+  });
+
+  it('allows parsing fragment spread arguments', () => {
+    const document = 'fragment a on t { ...b(v: $v) }';
+
+    expect(() =>
+      parse(document, { experimentalFragmentArguments: true }),
+    ).to.not.throw();
+  });
+
+  it('disallows parsing fragment spread arguments without experimental flag', () => {
+    const document = 'fragment a on t { ...b(v: $v) }';
+
+    expect(() => parse(document)).to.throw();
   });
 
   it('contains location that can be Object.toStringified, JSON.stringified, or jsutils.inspected', () => {
@@ -1354,9 +1373,9 @@ describe('Parser', () => {
       });
     });
 
-    it('parses fragment with variable description (legacy)', () => {
+    it('parses fragment with variable description', () => {
       const result = parse('fragment Foo("desc" $foo: Int) on Bar { baz }', {
-        allowLegacyFragmentVariables: true,
+        experimentalFragmentArguments: true,
       });
 
       const fragDef = result.definitions.find(

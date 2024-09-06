@@ -4,6 +4,7 @@ import { isAsyncIterable } from '../jsutils/isAsyncIterable.js';
 import { isIterableObject } from '../jsutils/isIterableObject.js';
 import { isObjectLike } from '../jsutils/isObjectLike.js';
 import { isPromise } from '../jsutils/isPromise.js';
+import { mapValue } from '../jsutils/mapValue.js';
 import type { Maybe } from '../jsutils/Maybe.js';
 import { memoize3 } from '../jsutils/memoize3.js';
 import type { ObjMap } from '../jsutils/ObjMap.js';
@@ -19,7 +20,7 @@ import { locatedError } from '../error/locatedError.js';
 
 import type {
   DocumentNode,
-  FragmentDefinitionNode,
+  FieldNode,
   OperationDefinitionNode,
 } from '../language/ast.js';
 import { OperationTypeNode } from '../language/ast.js';
@@ -46,13 +47,22 @@ import {
 import type { GraphQLSchema } from '../type/schema.js';
 import { assertValidSchema } from '../type/validate.js';
 
-import type { FieldGroup, GroupedFieldSet } from './collectFields.js';
+import type {
+  FieldGroup,
+  FragmentDetails,
+  GroupedFieldSet,
+} from './collectFields.js';
 import {
   collectFields,
   collectSubfields as _collectSubfields,
 } from './collectFields.js';
+import { getVariableSignature } from './getVariableSignature.js';
 import { mapAsyncIterable } from './mapAsyncIterable.js';
-import { getArgumentValues, getVariableValues } from './values.js';
+import {
+  experimentalGetArgumentValues,
+  getArgumentValues,
+  getVariableValues,
+} from './values.js';
 
 /* eslint-disable max-params */
 // This file contains a lot of such errors but we plan to refactor it anyway
@@ -106,7 +116,7 @@ const collectSubfields = memoize3(
  */
 export interface ExecutionContext {
   schema: GraphQLSchema;
-  fragments: ObjMap<FragmentDefinitionNode>;
+  fragments: ObjMap<FragmentDetails>;
   rootValue: unknown;
   contextValue: unknown;
   operation: OperationDefinitionNode;
@@ -338,7 +348,7 @@ export function buildExecutionContext(
   assertValidSchema(schema);
 
   let operation: OperationDefinitionNode | undefined;
-  const fragments: ObjMap<FragmentDefinitionNode> = Object.create(null);
+  const fragments: ObjMap<FragmentDetails> = Object.create(null);
   for (const definition of document.definitions) {
     switch (definition.kind) {
       case Kind.OPERATION_DEFINITION:
@@ -355,9 +365,18 @@ export function buildExecutionContext(
           operation = definition;
         }
         break;
-      case Kind.FRAGMENT_DEFINITION:
-        fragments[definition.name.value] = definition;
+      case Kind.FRAGMENT_DEFINITION: {
+        let variableSignatures;
+        if (definition.variableDefinitions) {
+          variableSignatures = Object.create(null);
+          for (const varDef of definition.variableDefinitions) {
+            const signature = getVariableSignature(schema, varDef);
+            variableSignatures[signature.name] = signature;
+          }
+        }
+        fragments[definition.name.value] = { definition, variableSignatures };
         break;
+      }
       default:
       // ignore non-executable definitions
     }
@@ -551,7 +570,10 @@ function executeField(
   fieldGroup: FieldGroup,
   path: Path,
 ): PromiseOrValue<unknown> {
-  const fieldName = fieldGroup[0].name.value;
+  const firstFieldDetails = fieldGroup[0];
+  const firstFieldNode = firstFieldDetails.node;
+  const fieldName = firstFieldNode.name.value;
+
   const fieldDef = exeContext.schema.getField(parentType, fieldName);
   if (!fieldDef) {
     return;
@@ -563,7 +585,7 @@ function executeField(
   const info = buildResolveInfo(
     exeContext,
     fieldDef,
-    fieldGroup,
+    toNodes(fieldGroup),
     parentType,
     path,
   );
@@ -573,10 +595,11 @@ function executeField(
     // Build a JS object of arguments from the field.arguments AST, using the
     // variables scope to fulfill any variable references.
     // TODO: find a way to memoize, in case this field is within a List type.
-    const args = getArgumentValues(
-      fieldDef,
-      fieldGroup[0],
+    const args = experimentalGetArgumentValues(
+      firstFieldNode,
+      fieldDef.args,
       exeContext.variableValues,
+      firstFieldDetails.fragmentVariables,
     );
 
     // The resolve function's optional third argument is a context value that
@@ -621,6 +644,10 @@ function executeField(
   }
 }
 
+function toNodes(fieldGroup: FieldGroup): ReadonlyArray<FieldNode> {
+  return fieldGroup.map((fieldDetails) => fieldDetails.node);
+}
+
 /**
  * TODO: consider no longer exporting this function
  * @internal
@@ -628,7 +655,7 @@ function executeField(
 export function buildResolveInfo(
   exeContext: ExecutionContext,
   fieldDef: GraphQLField<unknown, unknown>,
-  fieldGroup: FieldGroup,
+  fieldNodes: ReadonlyArray<FieldNode>,
   parentType: GraphQLObjectType,
   path: Path,
 ): GraphQLResolveInfo {
@@ -636,12 +663,15 @@ export function buildResolveInfo(
   // information about the current execution state.
   return {
     fieldName: fieldDef.name,
-    fieldNodes: fieldGroup,
+    fieldNodes,
     returnType: fieldDef.type,
     parentType,
     path,
     schema: exeContext.schema,
-    fragments: exeContext.fragments,
+    fragments: mapValue(
+      exeContext.fragments,
+      (fragment) => fragment.definition,
+    ),
     rootValue: exeContext.rootValue,
     operation: exeContext.operation,
     variableValues: exeContext.variableValues,
@@ -655,7 +685,7 @@ function handleFieldError(
   fieldGroup: FieldGroup,
   path: Path,
 ): void {
-  const error = locatedError(rawError, fieldGroup, pathToArray(path));
+  const error = locatedError(rawError, toNodes(fieldGroup), pathToArray(path));
 
   // If the field type is non-nullable, then it is resolved without any
   // protection from errors, however it still properly locates the error.
@@ -828,7 +858,7 @@ async function completeAsyncIteratorValue(
         // eslint-disable-next-line no-await-in-loop
         iteration = await asyncIterator.next();
       } catch (rawError) {
-        throw locatedError(rawError, fieldGroup, pathToArray(path));
+        throw locatedError(rawError, toNodes(fieldGroup), pathToArray(path));
       }
 
       // TODO: add test case for stream returning done before initialCount
@@ -1143,7 +1173,7 @@ function ensureValidRuntimeType(
   if (runtimeTypeName == null) {
     throw new GraphQLError(
       `Abstract type "${returnType}" must resolve to an Object type at runtime for field "${info.parentType}.${info.fieldName}". Either the "${returnType}" type should provide a "resolveType" function or each possible type should provide an "isTypeOf" function.`,
-      { nodes: fieldGroup },
+      { nodes: toNodes(fieldGroup) },
     );
   }
 
@@ -1166,21 +1196,21 @@ function ensureValidRuntimeType(
   if (runtimeType == null) {
     throw new GraphQLError(
       `Abstract type "${returnType}" was resolved to a type "${runtimeTypeName}" that does not exist inside the schema.`,
-      { nodes: fieldGroup },
+      { nodes: toNodes(fieldGroup) },
     );
   }
 
   if (!isObjectType(runtimeType)) {
     throw new GraphQLError(
       `Abstract type "${returnType}" was resolved to a non-object type "${runtimeTypeName}".`,
-      { nodes: fieldGroup },
+      { nodes: toNodes(fieldGroup) },
     );
   }
 
   if (!exeContext.schema.isSubType(returnType, runtimeType)) {
     throw new GraphQLError(
       `Runtime Object type "${runtimeType}" is not a possible type for "${returnType}".`,
-      { nodes: fieldGroup },
+      { nodes: toNodes(fieldGroup) },
     );
   }
 
@@ -1240,7 +1270,7 @@ function invalidReturnTypeError(
 ): GraphQLError {
   return new GraphQLError(
     `Expected value of type "${returnType}" but got: ${inspect(result)}.`,
-    { nodes: fieldGroup },
+    { nodes: toNodes(fieldGroup) },
   );
 }
 
@@ -1484,15 +1514,18 @@ function executeSubscription(
     operation.selectionSet,
   );
 
-  const firstRootField = groupedFieldSet.entries().next().value;
+  const firstRootField = groupedFieldSet.entries().next().value as [
+    string,
+    FieldGroup,
+  ];
   const [responseName, fieldGroup] = firstRootField;
-  const fieldName = fieldGroup[0].name.value;
+  const fieldName = fieldGroup[0].node.name.value;
   const fieldDef = schema.getField(rootType, fieldName);
 
   if (!fieldDef) {
     throw new GraphQLError(
       `The subscription field "${fieldName}" is not defined.`,
-      { nodes: fieldGroup },
+      { nodes: toNodes(fieldGroup) },
     );
   }
 
@@ -1500,7 +1533,7 @@ function executeSubscription(
   const info = buildResolveInfo(
     exeContext,
     fieldDef,
-    fieldGroup,
+    toNodes(fieldGroup),
     rootType,
     path,
   );
@@ -1511,7 +1544,11 @@ function executeSubscription(
 
     // Build a JS object of arguments from the field.arguments AST, using the
     // variables scope to fulfill any variable references.
-    const args = getArgumentValues(fieldDef, fieldGroup[0], variableValues);
+    const args = getArgumentValues(
+      fieldDef,
+      fieldGroup[0].node,
+      variableValues,
+    );
 
     // The resolve function's optional third argument is a context value that
     // is provided to every resolve function within an execution. It is commonly
@@ -1525,13 +1562,13 @@ function executeSubscription(
 
     if (isPromise(result)) {
       return result.then(assertEventStream).then(undefined, (error) => {
-        throw locatedError(error, fieldGroup, pathToArray(path));
+        throw locatedError(error, toNodes(fieldGroup), pathToArray(path));
       });
     }
 
     return assertEventStream(result);
   } catch (error) {
-    throw locatedError(error, fieldGroup, pathToArray(path));
+    throw locatedError(error, toNodes(fieldGroup), pathToArray(path));
   }
 }
 

@@ -168,28 +168,28 @@ describe('Printer: Query document', () => {
     `);
   });
 
-  it('Legacy: prints fragment with variable directives', () => {
-    const queryASTWithVariableDirective = parse(
+  it('prints fragment with argument definition directives', () => {
+    const fragmentWithArgumentDefinitionDirective = parse(
       'fragment Foo($foo: TestType @test) on TestType @testDirective { id }',
-      { allowLegacyFragmentVariables: true },
+      { experimentalFragmentArguments: true },
     );
-    expect(print(queryASTWithVariableDirective)).to.equal(dedent`
+    expect(print(fragmentWithArgumentDefinitionDirective)).to.equal(dedent`
       fragment Foo($foo: TestType @test) on TestType @testDirective {
         id
       }
     `);
   });
 
-  it('Legacy: correctly prints fragment defined variables', () => {
-    const fragmentWithVariable = parse(
+  it('correctly prints fragment defined arguments', () => {
+    const fragmentWithArgumentDefinition = parse(
       `
         fragment Foo($a: ComplexType, $b: Boolean = false) on TestType {
           id
         }
       `,
-      { allowLegacyFragmentVariables: true },
+      { experimentalFragmentArguments: true },
     );
-    expect(print(fragmentWithVariable)).to.equal(dedent`
+    expect(print(fragmentWithArgumentDefinition)).to.equal(dedent`
       fragment Foo($a: ComplexType, $b: Boolean = false) on TestType {
         id
       }
@@ -205,6 +205,34 @@ describe('Printer: Query document', () => {
       "Fragment description"
       fragment Foo on Bar {
         baz
+      }
+    `);
+  });
+
+  it('prints fragment spread with arguments', () => {
+    const fragmentSpreadWithArguments = parse(
+      'fragment Foo on TestType { ...Bar(a: {x: $x}, b: true) }',
+      { experimentalFragmentArguments: true },
+    );
+    expect(print(fragmentSpreadWithArguments)).to.equal(dedent`
+      fragment Foo on TestType {
+        ...Bar(a: { x: $x }, b: true)
+      }
+    `);
+  });
+
+  it('prints fragment spread with multi-line arguments', () => {
+    const fragmentSpreadWithArguments = parse(
+      'fragment Foo on TestType { ...Bar(a: {x: $x, y: $y, z: $z, xy: $xy}, b: true, c: "a long string extending arguments over max length") }',
+      { experimentalFragmentArguments: true },
+    );
+    expect(print(fragmentSpreadWithArguments)).to.equal(dedent`
+      fragment Foo on TestType {
+        ...Bar(
+          a: { x: $x, y: $y, z: $z, xy: $xy }
+          b: true
+          c: "a long string extending arguments over max length"
+        )
       }
     `);
   });
