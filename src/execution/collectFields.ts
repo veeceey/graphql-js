@@ -46,7 +46,6 @@ interface CollectFieldsContext {
   schema: GraphQLSchema;
   fragments: ObjMap<FragmentDetails>;
   variableValues: { [variable: string]: unknown };
-  fragmentVariableValues?: FragmentVariables;
   runtimeType: GraphQLObjectType;
   visitedFragmentNames: Set<string>;
 }
@@ -107,9 +106,15 @@ export function collectSubfields(
   const subGroupedFieldSet = new AccumulatorMap<string, FieldDetails>();
 
   for (const fieldDetail of fieldGroup) {
-    const node = fieldDetail.node;
-    if (node.selectionSet) {
-      collectFieldsImpl(context, node.selectionSet, subGroupedFieldSet);
+    const selectionSet = fieldDetail.node.selectionSet;
+    if (selectionSet) {
+      const { fragmentVariables } = fieldDetail;
+      collectFieldsImpl(
+        context,
+        selectionSet,
+        subGroupedFieldSet,
+        fragmentVariables,
+      );
     }
   }
 
