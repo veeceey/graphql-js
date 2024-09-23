@@ -197,6 +197,7 @@ export type {
   GraphQLScalarSerializer,
   GraphQLScalarValueParser,
   GraphQLScalarLiteralParser,
+  GraphQLDefaultValueUsage,
 } from './type/index.js';
 
 // Parse and operate on GraphQL language source files.
