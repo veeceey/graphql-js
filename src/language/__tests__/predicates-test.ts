@@ -8,7 +8,6 @@ import {
   isConstValueNode,
   isDefinitionNode,
   isExecutableDefinitionNode,
-  isNullabilityAssertionNode,
   isSchemaCoordinateNode,
   isSelectionNode,
   isTypeDefinitionNode,
@@ -61,14 +60,6 @@ describe('AST node predicates', () => {
       'Field',
       'FragmentSpread',
       'InlineFragment',
-    ]);
-  });
-
-  it('isNullabilityAssertionNode', () => {
-    expect(filterNodes(isNullabilityAssertionNode)).to.deep.equal([
-      'ListNullabilityOperator',
-      'NonNullAssertion',
-      'ErrorBoundary',
     ]);
   });
 

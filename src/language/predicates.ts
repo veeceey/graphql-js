@@ -3,7 +3,6 @@ import type {
   ConstValueNode,
   DefinitionNode,
   ExecutableDefinitionNode,
-  NullabilityAssertionNode,
   SchemaCoordinateNode,
   SelectionNode,
   TypeDefinitionNode,
@@ -37,16 +36,6 @@ export function isSelectionNode(node: ASTNode): node is SelectionNode {
     node.kind === Kind.FIELD ||
     node.kind === Kind.FRAGMENT_SPREAD ||
     node.kind === Kind.INLINE_FRAGMENT
-  );
-}
-
-export function isNullabilityAssertionNode(
-  node: ASTNode,
-): node is NullabilityAssertionNode {
-  return (
-    node.kind === Kind.LIST_NULLABILITY_OPERATOR ||
-    node.kind === Kind.NON_NULL_ASSERTION ||
-    node.kind === Kind.ERROR_BOUNDARY
   );
 }
 
