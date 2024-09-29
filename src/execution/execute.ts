@@ -58,6 +58,7 @@ import {
 } from './collectFields.js';
 import { getVariableSignature } from './getVariableSignature.js';
 import { mapAsyncIterable } from './mapAsyncIterable.js';
+import type { VariableValues } from './values.js';
 import {
   experimentalGetArgumentValues,
   getArgumentValues,
@@ -120,7 +121,7 @@ export interface ExecutionContext {
   rootValue: unknown;
   contextValue: unknown;
   operation: OperationDefinitionNode;
-  variableValues: { [variable: string]: unknown };
+  variableValues: VariableValues;
   fieldResolver: GraphQLFieldResolver<any, any>;
   typeResolver: GraphQLTypeResolver<any, any>;
   subscribeFieldResolver: GraphQLFieldResolver<any, any>;
@@ -393,15 +394,15 @@ export function buildExecutionContext(
   /* c8 ignore next */
   const variableDefinitions = operation.variableDefinitions ?? [];
 
-  const coercedVariableValues = getVariableValues(
+  const variableValuesOrErrors = getVariableValues(
     schema,
     variableDefinitions,
     rawVariableValues ?? {},
     { maxErrors: options?.maxCoercionErrors ?? 50 },
   );
 
-  if (coercedVariableValues.errors) {
-    return coercedVariableValues.errors;
+  if (variableValuesOrErrors.errors) {
+    return variableValuesOrErrors.errors;
   }
 
   return {
@@ -410,7 +411,7 @@ export function buildExecutionContext(
     rootValue,
     contextValue,
     operation,
-    variableValues: coercedVariableValues.coerced,
+    variableValues: variableValuesOrErrors.variableValues,
     fieldResolver: fieldResolver ?? defaultFieldResolver,
     typeResolver: typeResolver ?? defaultTypeResolver,
     subscribeFieldResolver: subscribeFieldResolver ?? defaultFieldResolver,
@@ -599,7 +600,7 @@ function executeField(
       firstFieldNode,
       fieldDef.args,
       exeContext.variableValues,
-      firstFieldDetails.fragmentVariables,
+      firstFieldDetails.fragmentVariableValues,
     );
 
     // The resolve function's optional third argument is a context value that

@@ -21,16 +21,12 @@ import type { GraphQLSchema } from '../type/schema.js';
 import { typeFromAST } from '../utilities/typeFromAST.js';
 
 import type { GraphQLVariableSignature } from './getVariableSignature.js';
-import { experimentalGetArgumentValues, getDirectiveValues } from './values.js';
-
-export interface FragmentVariables {
-  signatures: ObjMap<GraphQLVariableSignature>;
-  values: ObjMap<unknown>;
-}
+import type { VariableValues } from './values.js';
+import { getDirectiveValues, getFragmentVariableValues } from './values.js';
 
 export interface FieldDetails {
   node: FieldNode;
-  fragmentVariables?: FragmentVariables | undefined;
+  fragmentVariableValues?: VariableValues | undefined;
 }
 
 export type FieldGroup = ReadonlyArray<FieldDetails>;
@@ -45,7 +41,7 @@ export interface FragmentDetails {
 interface CollectFieldsContext {
   schema: GraphQLSchema;
   fragments: ObjMap<FragmentDetails>;
-  variableValues: { [variable: string]: unknown };
+  variableValues: VariableValues;
   runtimeType: GraphQLObjectType;
   visitedFragmentNames: Set<string>;
 }
@@ -62,7 +58,7 @@ interface CollectFieldsContext {
 export function collectFields(
   schema: GraphQLSchema,
   fragments: ObjMap<FragmentDetails>,
-  variableValues: { [variable: string]: unknown },
+  variableValues: VariableValues,
   runtimeType: GraphQLObjectType,
   selectionSet: SelectionSetNode,
 ): GroupedFieldSet {
@@ -92,7 +88,7 @@ export function collectFields(
 export function collectSubfields(
   schema: GraphQLSchema,
   fragments: ObjMap<FragmentDetails>,
-  variableValues: { [variable: string]: unknown },
+  variableValues: VariableValues,
   returnType: GraphQLObjectType,
   fieldGroup: FieldGroup,
 ): GroupedFieldSet {
@@ -108,12 +104,12 @@ export function collectSubfields(
   for (const fieldDetail of fieldGroup) {
     const selectionSet = fieldDetail.node.selectionSet;
     if (selectionSet) {
-      const { fragmentVariables } = fieldDetail;
+      const { fragmentVariableValues } = fieldDetail;
       collectFieldsImpl(
         context,
         selectionSet,
         subGroupedFieldSet,
-        fragmentVariables,
+        fragmentVariableValues,
       );
     }
   }
@@ -125,7 +121,7 @@ function collectFieldsImpl(
   context: CollectFieldsContext,
   selectionSet: SelectionSetNode,
   groupedFieldSet: AccumulatorMap<string, FieldDetails>,
-  fragmentVariables?: FragmentVariables,
+  fragmentVariableValues?: VariableValues,
 ): void {
   const {
     schema,
@@ -138,18 +134,24 @@ function collectFieldsImpl(
   for (const selection of selectionSet.selections) {
     switch (selection.kind) {
       case Kind.FIELD: {
-        if (!shouldIncludeNode(selection, variableValues, fragmentVariables)) {
+        if (
+          !shouldIncludeNode(selection, variableValues, fragmentVariableValues)
+        ) {
           continue;
         }
         groupedFieldSet.add(getFieldEntryKey(selection), {
           node: selection,
-          fragmentVariables,
+          fragmentVariableValues,
         });
         break;
       }
       case Kind.INLINE_FRAGMENT: {
         if (
-          !shouldIncludeNode(selection, variableValues, fragmentVariables) ||
+          !shouldIncludeNode(
+            selection,
+            variableValues,
+            fragmentVariableValues,
+          ) ||
           !doesFragmentConditionMatch(schema, selection, runtimeType)
         ) {
           continue;
@@ -159,8 +161,9 @@ function collectFieldsImpl(
           context,
           selection.selectionSet,
           groupedFieldSet,
-          fragmentVariables,
+          fragmentVariableValues,
         );
+
         break;
       }
       case Kind.FRAGMENT_SPREAD: {
@@ -168,7 +171,7 @@ function collectFieldsImpl(
 
         if (
           visitedFragmentNames.has(fragName) ||
-          !shouldIncludeNode(selection, variableValues, fragmentVariables)
+          !shouldIncludeNode(selection, variableValues, fragmentVariableValues)
         ) {
           continue;
         }
@@ -182,17 +185,14 @@ function collectFieldsImpl(
         }
 
         const fragmentVariableSignatures = fragment.variableSignatures;
-        let newFragmentVariables: FragmentVariables | undefined;
+        let newFragmentVariableValues: VariableValues | undefined;
         if (fragmentVariableSignatures) {
-          newFragmentVariables = {
-            signatures: fragmentVariableSignatures,
-            values: experimentalGetArgumentValues(
-              selection,
-              Object.values(fragmentVariableSignatures),
-              variableValues,
-              fragmentVariables,
-            ),
-          };
+          newFragmentVariableValues = getFragmentVariableValues(
+            selection,
+            fragmentVariableSignatures,
+            variableValues,
+            fragmentVariableValues,
+          );
         }
 
         visitedFragmentNames.add(fragName);
@@ -200,7 +200,7 @@ function collectFieldsImpl(
           context,
           fragment.definition.selectionSet,
           groupedFieldSet,
-          newFragmentVariables,
+          newFragmentVariableValues,
         );
         break;
       }
@@ -214,14 +214,14 @@ function collectFieldsImpl(
  */
 function shouldIncludeNode(
   node: FragmentSpreadNode | FieldNode | InlineFragmentNode,
-  variableValues: { [variable: string]: unknown },
-  fragmentVariables: FragmentVariables | undefined,
+  variableValues: VariableValues,
+  fragmentVariableValues: VariableValues | undefined,
 ): boolean {
   const skip = getDirectiveValues(
     GraphQLSkipDirective,
     node,
     variableValues,
-    fragmentVariables,
+    fragmentVariableValues,
   );
   if (skip?.if === true) {
     return false;
@@ -231,7 +231,7 @@ function shouldIncludeNode(
     GraphQLIncludeDirective,
     node,
     variableValues,
-    fragmentVariables,
+    fragmentVariableValues,
   );
   if (include?.if === false) {
     return false;
