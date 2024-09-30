@@ -337,6 +337,7 @@ export {
 
 export type {
   ExecutionArgs,
+  ValidatedExecutionArgs,
   ExecutionResult,
   FormattedExecutionResult,
 } from './execution/index.js';
