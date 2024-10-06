@@ -324,6 +324,7 @@ export type {
 // Execute GraphQL queries.
 export {
   execute,
+  executeSubscriptionEvent,
   executeSync,
   defaultFieldResolver,
   defaultTypeResolver,
