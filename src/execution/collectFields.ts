@@ -29,9 +29,9 @@ export interface FieldDetails {
   fragmentVariableValues?: VariableValues | undefined;
 }
 
-export type FieldGroup = ReadonlyArray<FieldDetails>;
+export type FieldDetailsList = ReadonlyArray<FieldDetails>;
 
-export type GroupedFieldSet = ReadonlyMap<string, FieldGroup>;
+export type GroupedFieldSet = ReadonlyMap<string, FieldDetailsList>;
 
 export interface FragmentDetails {
   definition: FragmentDefinitionNode;
@@ -90,7 +90,7 @@ export function collectSubfields(
   fragments: ObjMap<FragmentDetails>,
   variableValues: VariableValues,
   returnType: GraphQLObjectType,
-  fieldGroup: FieldGroup,
+  fieldDetailsList: FieldDetailsList,
 ): GroupedFieldSet {
   const context: CollectFieldsContext = {
     schema,
@@ -101,7 +101,7 @@ export function collectSubfields(
   };
   const subGroupedFieldSet = new AccumulatorMap<string, FieldDetails>();
 
-  for (const fieldDetail of fieldGroup) {
+  for (const fieldDetail of fieldDetailsList) {
     const selectionSet = fieldDetail.node.selectionSet;
     if (selectionSet) {
       const { fragmentVariableValues } = fieldDetail;
