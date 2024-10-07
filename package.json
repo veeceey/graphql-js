@@ -48,7 +48,8 @@
     "build:deno": "node --loader ts-node/esm resources/build-deno.ts",
     "diff:npm": "node --loader ts-node/esm resources/diff-npm-package.ts",
     "gitpublish:npm": "bash ./resources/gitpublish.sh npm npmDist",
-    "gitpublish:deno": "bash ./resources/gitpublish.sh deno denoDist"
+    "gitpublish:deno": "bash ./resources/gitpublish.sh deno denoDist",
+    "prepare": "husky"
   },
   "devDependencies": {
     "@types/chai": "4.3.19",
@@ -66,6 +67,8 @@
     "eslint-plugin-react-hooks": "4.6.2",
     "eslint-plugin-simple-import-sort": "12.1.1",
     "eslint-plugin-tsdoc": "0.3.0",
+    "husky": "^9.1.6",
+    "lint-staged": "^15.2.10",
     "mocha": "10.7.3",
     "prettier": "3.3.3",
     "ts-node": "10.9.2",
