@@ -265,7 +265,7 @@ export function execute(args: ExecutionArgs): PromiseOrValue<ExecutionResult> {
  * at which point we still log the error and null the parent field, which
  * in this case is the entire response.
  */
-function executeQueryOrMutationOrSubscriptionEvent(
+export function executeQueryOrMutationOrSubscriptionEvent(
   validatedExecutionArgs: ValidatedExecutionArgs,
 ): PromiseOrValue<ExecutionResult> {
   const exeContext: ExecutionContext = {
