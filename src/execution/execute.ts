@@ -80,13 +80,15 @@ const collectSubfields = memoize3(
     returnType: GraphQLObjectType,
     fieldDetailsList: FieldDetailsList,
   ) => {
-    const { schema, fragments, variableValues } = validatedExecutionArgs;
+    const { schema, fragments, variableValues, hideSuggestions } =
+      validatedExecutionArgs;
     return _collectSubfields(
       schema,
       fragments,
       variableValues,
       returnType,
       fieldDetailsList,
+      hideSuggestions,
     );
   },
 );
@@ -134,6 +136,7 @@ export interface ValidatedExecutionArgs {
   perEventExecutor: (
     validatedExecutionArgs: ValidatedExecutionArgs,
   ) => PromiseOrValue<ExecutionResult>;
+  hideSuggestions: boolean;
 }
 
 /**
@@ -220,6 +223,7 @@ export interface ExecutionArgs {
       validatedExecutionArgs: ValidatedExecutionArgs,
     ) => PromiseOrValue<ExecutionResult>
   >;
+  hideSuggestions?: Maybe<boolean>;
   /** Additional execution options. */
   options?: {
     /** Set the maximum number of errors allowed for coercing (defaults to 50). */
@@ -273,8 +277,14 @@ export function executeQueryOrMutationOrSubscriptionEvent(
     collectedErrors: new CollectedErrors(),
   };
   try {
-    const { schema, fragments, rootValue, operation, variableValues } =
-      validatedExecutionArgs;
+    const {
+      schema,
+      fragments,
+      rootValue,
+      operation,
+      variableValues,
+      hideSuggestions,
+    } = validatedExecutionArgs;
     const rootType = schema.getRootType(operation.operation);
     if (rootType == null) {
       throw new GraphQLError(
@@ -289,6 +299,7 @@ export function executeQueryOrMutationOrSubscriptionEvent(
       variableValues,
       rootType,
       operation.selectionSet,
+      hideSuggestions,
     );
 
     const result = executeRootGroupedFieldSet(
@@ -419,12 +430,16 @@ export function validateExecutionArgs(
   // FIXME: https://github.com/graphql/graphql-js/issues/2203
   /* c8 ignore next */
   const variableDefinitions = operation.variableDefinitions ?? [];
+  const hideSuggestions = args.hideSuggestions ?? false;
 
   const variableValuesOrErrors = getVariableValues(
     schema,
     variableDefinitions,
     rawVariableValues ?? {},
-    { maxErrors: options?.maxCoercionErrors ?? 50 },
+    {
+      maxErrors: options?.maxCoercionErrors ?? 50,
+      hideSuggestions,
+    },
   );
 
   if (variableValuesOrErrors.errors) {
@@ -443,6 +458,7 @@ export function validateExecutionArgs(
     typeResolver: typeResolver ?? defaultTypeResolver,
     subscribeFieldResolver: subscribeFieldResolver ?? defaultFieldResolver,
     perEventExecutor: perEventExecutor ?? executeSubscriptionEvent,
+    hideSuggestions,
   };
 }
 
@@ -588,7 +604,8 @@ function executeField(
   path: Path,
 ): PromiseOrValue<unknown> {
   const validatedExecutionArgs = exeContext.validatedExecutionArgs;
-  const { schema, contextValue, variableValues } = validatedExecutionArgs;
+  const { schema, contextValue, variableValues, hideSuggestions } =
+    validatedExecutionArgs;
   const firstFieldDetails = fieldDetailsList[0];
   const firstFieldNode = firstFieldDetails.node;
   const fieldName = firstFieldNode.name.value;
@@ -619,6 +636,7 @@ function executeField(
       fieldDef.args,
       variableValues,
       firstFieldDetails.fragmentVariableValues,
+      hideSuggestions,
     );
 
     // The resolve function's optional third argument is a context value that
@@ -1554,6 +1572,7 @@ function executeSubscription(
     contextValue,
     operation,
     variableValues,
+    hideSuggestions,
   } = validatedExecutionArgs;
 
   const rootType = schema.getSubscriptionType();
@@ -1570,6 +1589,7 @@ function executeSubscription(
     variableValues,
     rootType,
     operation.selectionSet,
+    hideSuggestions,
   );
 
   const firstRootField = groupedFieldSet.entries().next().value as [
@@ -1603,7 +1623,12 @@ function executeSubscription(
 
     // Build a JS object of arguments from the field.arguments AST, using the
     // variables scope to fulfill any variable references.
-    const args = getArgumentValues(fieldDef, fieldNodes[0], variableValues);
+    const args = getArgumentValues(
+      fieldDef,
+      fieldNodes[0],
+      variableValues,
+      hideSuggestions,
+    );
 
     // Call the `subscribe()` resolver or the default resolver to produce an
     // AsyncIterable yielding raw payloads.

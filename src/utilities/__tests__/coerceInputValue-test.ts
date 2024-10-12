@@ -50,6 +50,7 @@ interface CoerceError {
 function coerceValue(
   inputValue: unknown,
   type: GraphQLInputType,
+  hideSuggestions = false,
 ): CoerceResult {
   const errors: Array<CoerceError> = [];
   const value = coerceInputValue(
@@ -58,6 +59,7 @@ function coerceValue(
     (path, invalidValue, error) => {
       errors.push({ path, value: invalidValue, error: error.message });
     },
+    hideSuggestions,
   );
 
   return { errors, value };
@@ -183,6 +185,17 @@ describe('coerceInputValue', () => {
       ]);
     });
 
+    it('returns an error for misspelled enum value (no suggestions)', () => {
+      const result = coerceValue('foo', TestEnum, true);
+      expectErrors(result).to.deep.equal([
+        {
+          error: 'Value "foo" does not exist in "TestEnum" enum.',
+          path: [],
+          value: 'foo',
+        },
+      ]);
+    });
+
     it('returns an error for incorrect value type', () => {
       const result1 = coerceValue(123, TestEnum);
       expectErrors(result1).to.deep.equal([
@@ -194,6 +207,27 @@ describe('coerceInputValue', () => {
       ]);
 
       const result2 = coerceValue({ field: 'value' }, TestEnum);
+      expectErrors(result2).to.deep.equal([
+        {
+          error:
+            'Enum "TestEnum" cannot represent non-string value: { field: "value" }.',
+          path: [],
+          value: { field: 'value' },
+        },
+      ]);
+    });
+
+    it('returns an error for incorrect value type (no suggestions)', () => {
+      const result1 = coerceValue(123, TestEnum, true);
+      expectErrors(result1).to.deep.equal([
+        {
+          error: 'Enum "TestEnum" cannot represent non-string value: 123.',
+          path: [],
+          value: 123,
+        },
+      ]);
+
+      const result2 = coerceValue({ field: 'value' }, TestEnum, false);
       expectErrors(result2).to.deep.equal([
         {
           error:
@@ -298,6 +332,21 @@ describe('coerceInputValue', () => {
         {
           error:
             'Field "bart" is not defined by type "TestInputObject". Did you mean "bar"?',
+          path: [],
+          value: { foo: 123, bart: 123 },
+        },
+      ]);
+    });
+
+    it('returns error for a misspelled field (no suggestions)', () => {
+      const result = coerceValue(
+        { foo: 123, bart: 123 },
+        TestInputObject,
+        true,
+      );
+      expectErrors(result).to.deep.equal([
+        {
+          error: 'Field "bart" is not defined by type "TestInputObject".',
           path: [],
           value: { foo: 123, bart: 123 },
         },
@@ -422,6 +471,23 @@ describe('coerceInputValue', () => {
         {
           error:
             'Field "bart" is not defined by type "TestInputObject". Did you mean "bar"?',
+          path: [],
+          value: { bart: 123 },
+        },
+        {
+          error:
+            'Exactly one key must be specified for OneOf type "TestInputObject".',
+          path: [],
+          value: { bart: 123 },
+        },
+      ]);
+    });
+
+    it('returns error for a misspelled field (no suggestions)', () => {
+      const result = coerceValue({ bart: 123 }, TestInputObject, true);
+      expectErrors(result).to.deep.equal([
+        {
+          error: 'Field "bart" is not defined by type "TestInputObject".',
           path: [],
           value: { bart: 123 },
         },
@@ -571,7 +637,7 @@ describe('coerceInputValue', () => {
   describe('with default onError', () => {
     it('throw error without path', () => {
       expect(() =>
-        coerceInputValue(null, new GraphQLNonNull(GraphQLInt)),
+        coerceInputValue(null, new GraphQLNonNull(GraphQLInt), undefined, true),
       ).to.throw(
         'Invalid value null: Expected non-nullable type "Int!" not to be null.',
       );
@@ -582,6 +648,8 @@ describe('coerceInputValue', () => {
         coerceInputValue(
           [null],
           new GraphQLList(new GraphQLNonNull(GraphQLInt)),
+          undefined,
+          true,
         ),
       ).to.throw(
         'Invalid value null at "value[0]": Expected non-nullable type "Int!" not to be null.',
@@ -598,7 +666,13 @@ describe('coerceInputLiteral', () => {
     variableValues?: VariableValues,
   ) {
     const ast = parseValue(valueText);
-    const value = coerceInputLiteral(ast, type, variableValues);
+    const value = coerceInputLiteral(
+      ast,
+      type,
+      variableValues,
+      undefined,
+      true,
+    );
     expect(value).to.deep.equal(expected);
   }
 
@@ -925,10 +999,14 @@ describe('coerceDefaultValue', () => {
     const defaultValueUsage = {
       literal: { kind: Kind.STRING, value: 'hello' },
     } as const;
-    expect(coerceDefaultValue(defaultValueUsage, spyScalar)).to.equal('hello');
+    expect(coerceDefaultValue(defaultValueUsage, spyScalar, true)).to.equal(
+      'hello',
+    );
 
     // Call a second time
-    expect(coerceDefaultValue(defaultValueUsage, spyScalar)).to.equal('hello');
+    expect(coerceDefaultValue(defaultValueUsage, spyScalar, true)).to.equal(
+      'hello',
+    );
     expect(parseValueCalls).to.deep.equal(['hello']);
   });
 });

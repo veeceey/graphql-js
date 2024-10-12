@@ -51,6 +51,7 @@ export function SingleFieldSubscriptionsRule(
             variableValues,
             subscriptionType,
             node.selectionSet,
+            context.hideSuggestions,
           );
           if (groupedFieldSet.size > 1) {
             const fieldDetailsLists = [...groupedFieldSet.values()];
