@@ -380,8 +380,8 @@ export class Parser {
         operation: OperationTypeNode.QUERY,
         description: undefined,
         name: undefined,
-        variableDefinitions: [],
-        directives: [],
+        variableDefinitions: undefined,
+        directives: undefined,
         selectionSet: this.parseSelectionSet(),
       });
     }
@@ -422,7 +422,7 @@ export class Parser {
   /**
    * VariableDefinitions : ( VariableDefinition+ )
    */
-  parseVariableDefinitions(): Array<VariableDefinitionNode> {
+  parseVariableDefinitions(): Array<VariableDefinitionNode> | undefined {
     return this.optionalMany(
       TokenKind.PAREN_L,
       this.parseVariableDefinition,
@@ -519,15 +519,15 @@ export class Parser {
   /**
    * Arguments[Const] : ( Argument[?Const]+ )
    */
-  parseArguments(isConst: true): Array<ConstArgumentNode>;
-  parseArguments(isConst: boolean): Array<ArgumentNode>;
-  parseArguments(isConst: boolean): Array<ArgumentNode> {
+  parseArguments(isConst: true): Array<ConstArgumentNode> | undefined;
+  parseArguments(isConst: boolean): Array<ArgumentNode> | undefined;
+  parseArguments(isConst: boolean): Array<ArgumentNode> | undefined {
     const item = isConst ? this.parseConstArgument : this.parseArgument;
     return this.optionalMany(TokenKind.PAREN_L, item, TokenKind.PAREN_R);
   }
 
   /* experimental */
-  parseFragmentArguments(): Array<FragmentArgumentNode> {
+  parseFragmentArguments(): Array<FragmentArgumentNode> | undefined {
     const item = this.parseFragmentArgument;
     return this.optionalMany(TokenKind.PAREN_L, item, TokenKind.PAREN_R);
   }
@@ -800,17 +800,20 @@ export class Parser {
   /**
    * Directives[Const] : Directive[?Const]+
    */
-  parseDirectives(isConst: true): Array<ConstDirectiveNode>;
-  parseDirectives(isConst: boolean): Array<DirectiveNode>;
-  parseDirectives(isConst: boolean): Array<DirectiveNode> {
+  parseDirectives(isConst: true): Array<ConstDirectiveNode> | undefined;
+  parseDirectives(isConst: boolean): Array<DirectiveNode> | undefined;
+  parseDirectives(isConst: boolean): Array<DirectiveNode> | undefined {
     const directives = [];
     while (this.peek(TokenKind.AT)) {
       directives.push(this.parseDirective(isConst));
     }
-    return directives;
+    if (directives.length) {
+      return directives;
+    }
+    return undefined;
   }
 
-  parseConstDirectives(): Array<ConstDirectiveNode> {
+  parseConstDirectives(): Array<ConstDirectiveNode> | undefined {
     return this.parseDirectives(true);
   }
 
@@ -971,10 +974,10 @@ export class Parser {
    *   - implements `&`? NamedType
    *   - ImplementsInterfaces & NamedType
    */
-  parseImplementsInterfaces(): Array<NamedTypeNode> {
+  parseImplementsInterfaces(): Array<NamedTypeNode> | undefined {
     return this.expectOptionalKeyword('implements')
       ? this.delimitedMany(TokenKind.AMP, this.parseNamedType)
-      : [];
+      : undefined;
   }
 
   /**
@@ -982,7 +985,7 @@ export class Parser {
    * FieldsDefinition : { FieldDefinition+ }
    * ```
    */
-  parseFieldsDefinition(): Array<FieldDefinitionNode> {
+  parseFieldsDefinition(): Array<FieldDefinitionNode> | undefined {
     return this.optionalMany(
       TokenKind.BRACE_L,
       this.parseFieldDefinition,
@@ -1015,7 +1018,7 @@ export class Parser {
   /**
    * ArgumentsDefinition : ( InputValueDefinition+ )
    */
-  parseArgumentDefs(): Array<InputValueDefinitionNode> {
+  parseArgumentDefs(): Array<InputValueDefinitionNode> | undefined {
     return this.optionalMany(
       TokenKind.PAREN_L,
       this.parseInputValueDef,
@@ -1095,10 +1098,10 @@ export class Parser {
    *   - = `|`? NamedType
    *   - UnionMemberTypes | NamedType
    */
-  parseUnionMemberTypes(): Array<NamedTypeNode> {
+  parseUnionMemberTypes(): Array<NamedTypeNode> | undefined {
     return this.expectOptionalToken(TokenKind.EQUALS)
       ? this.delimitedMany(TokenKind.PIPE, this.parseNamedType)
-      : [];
+      : undefined;
   }
 
   /**
@@ -1126,7 +1129,7 @@ export class Parser {
    * EnumValuesDefinition : { EnumValueDefinition+ }
    * ```
    */
-  parseEnumValuesDefinition(): Array<EnumValueDefinitionNode> {
+  parseEnumValuesDefinition(): Array<EnumValueDefinitionNode> | undefined {
     return this.optionalMany(
       TokenKind.BRACE_L,
       this.parseEnumValueDefinition,
@@ -1195,7 +1198,7 @@ export class Parser {
    * InputFieldsDefinition : { InputValueDefinition+ }
    * ```
    */
-  parseInputFieldsDefinition(): Array<InputValueDefinitionNode> {
+  parseInputFieldsDefinition(): Array<InputValueDefinitionNode> | undefined {
     return this.optionalMany(
       TokenKind.BRACE_L,
       this.parseInputValueDef,
@@ -1258,7 +1261,7 @@ export class Parser {
       this.parseOperationTypeDefinition,
       TokenKind.BRACE_R,
     );
-    if (directives.length === 0 && operationTypes.length === 0) {
+    if (directives === undefined && operationTypes === undefined) {
       throw this.unexpected();
     }
     return this.node<SchemaExtensionNode>(start, {
@@ -1278,7 +1281,7 @@ export class Parser {
     this.expectKeyword('scalar');
     const name = this.parseName();
     const directives = this.parseConstDirectives();
-    if (directives.length === 0) {
+    if (directives === undefined) {
       throw this.unexpected();
     }
     return this.node<ScalarTypeExtensionNode>(start, {
@@ -1303,9 +1306,9 @@ export class Parser {
     const directives = this.parseConstDirectives();
     const fields = this.parseFieldsDefinition();
     if (
-      interfaces.length === 0 &&
-      directives.length === 0 &&
-      fields.length === 0
+      interfaces === undefined &&
+      directives === undefined &&
+      fields === undefined
     ) {
       throw this.unexpected();
     }
@@ -1333,9 +1336,9 @@ export class Parser {
     const directives = this.parseConstDirectives();
     const fields = this.parseFieldsDefinition();
     if (
-      interfaces.length === 0 &&
-      directives.length === 0 &&
-      fields.length === 0
+      interfaces === undefined &&
+      directives === undefined &&
+      fields === undefined
     ) {
       throw this.unexpected();
     }
@@ -1360,7 +1363,7 @@ export class Parser {
     const name = this.parseName();
     const directives = this.parseConstDirectives();
     const types = this.parseUnionMemberTypes();
-    if (directives.length === 0 && types.length === 0) {
+    if (directives === undefined && types === undefined) {
       throw this.unexpected();
     }
     return this.node<UnionTypeExtensionNode>(start, {
@@ -1383,7 +1386,7 @@ export class Parser {
     const name = this.parseName();
     const directives = this.parseConstDirectives();
     const values = this.parseEnumValuesDefinition();
-    if (directives.length === 0 && values.length === 0) {
+    if (directives === undefined && values === undefined) {
       throw this.unexpected();
     }
     return this.node<EnumTypeExtensionNode>(start, {
@@ -1406,7 +1409,7 @@ export class Parser {
     const name = this.parseName();
     const directives = this.parseConstDirectives();
     const fields = this.parseInputFieldsDefinition();
-    if (directives.length === 0 && fields.length === 0) {
+    if (directives === undefined && fields === undefined) {
       throw this.unexpected();
     }
     return this.node<InputObjectTypeExtensionNode>(start, {
@@ -1679,7 +1682,7 @@ export class Parser {
     openKind: TokenKind,
     parseFn: () => T,
     closeKind: TokenKind,
-  ): Array<T> {
+  ): Array<T> | undefined {
     if (this.expectOptionalToken(openKind)) {
       const nodes = [];
       do {
@@ -1687,7 +1690,7 @@ export class Parser {
       } while (!this.expectOptionalToken(closeKind));
       return nodes;
     }
-    return [];
+    return undefined;
   }
 
   /**
