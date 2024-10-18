@@ -472,8 +472,10 @@ export {
   // Compares two GraphQLSchemas and detects breaking changes.
   BreakingChangeType,
   DangerousChangeType,
+  SafeChangeType,
   findBreakingChanges,
   findDangerousChanges,
+  findSchemaChanges,
   // Schema Coordinates
   resolveSchemaCoordinate,
   resolveASTSchemaCoordinate,
@@ -504,6 +506,7 @@ export type {
   IntrospectionDirective,
   BuildSchemaOptions,
   BreakingChange,
+  SafeChange,
   DangerousChange,
   TypedQueryDocumentNode,
   // Schema Coordinates
