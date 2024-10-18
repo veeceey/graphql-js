@@ -786,7 +786,7 @@ describe('Execute: handles non-nullable types', () => {
         errors: [
           {
             message:
-              'Argument "cannotBeNull" of non-null type "String!" must not be null.',
+              'Argument "cannotBeNull" has invalid value: Expected value of non-null type "String!" not to be null.',
             locations: [{ line: 3, column: 42 }],
             path: ['withNonNullArg'],
           },
@@ -816,7 +816,7 @@ describe('Execute: handles non-nullable types', () => {
         errors: [
           {
             message:
-              'Argument "cannotBeNull" of required type "String!" was provided the variable "$testVar" which was not provided a runtime value.',
+              'Argument "cannotBeNull" has invalid value: Expected variable "$testVar" provided to type "String!" to provide a runtime value.',
             locations: [{ line: 3, column: 42 }],
             path: ['withNonNullArg'],
           },
@@ -844,7 +844,7 @@ describe('Execute: handles non-nullable types', () => {
         errors: [
           {
             message:
-              'Argument "cannotBeNull" of non-null type "String!" must not be null.',
+              'Argument "cannotBeNull" has invalid value: Expected variable "$testVar" provided to non-null type "String!" not to be null.',
             locations: [{ line: 3, column: 43 }],
             path: ['withNonNullArg'],
           },
