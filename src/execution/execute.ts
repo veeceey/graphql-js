@@ -137,6 +137,7 @@ export interface ValidatedExecutionArgs {
     validatedExecutionArgs: ValidatedExecutionArgs,
   ) => PromiseOrValue<ExecutionResult>;
   hideSuggestions: boolean;
+  abortSignal: AbortSignal | undefined;
 }
 
 /**
@@ -224,6 +225,7 @@ export interface ExecutionArgs {
     ) => PromiseOrValue<ExecutionResult>
   >;
   hideSuggestions?: Maybe<boolean>;
+  abortSignal?: Maybe<AbortSignal>;
   /** Additional execution options. */
   options?: {
     /** Set the maximum number of errors allowed for coercing (defaults to 50). */
@@ -376,8 +378,13 @@ export function validateExecutionArgs(
     typeResolver,
     subscribeFieldResolver,
     perEventExecutor,
+    abortSignal,
     options,
   } = args;
+
+  if (abortSignal?.aborted) {
+    return [locatedError(new Error(abortSignal.reason), undefined)];
+  }
 
   // If the schema used for execution is invalid, throw an error.
   assertValidSchema(schema);
@@ -457,6 +464,7 @@ export function validateExecutionArgs(
     subscribeFieldResolver: subscribeFieldResolver ?? defaultFieldResolver,
     perEventExecutor: perEventExecutor ?? executeSubscriptionEvent,
     hideSuggestions,
+    abortSignal: args.abortSignal ?? undefined,
   };
 }
 
@@ -512,6 +520,19 @@ function executeFieldsSerially(
     groupedFieldSet,
     (results, [responseName, fieldDetailsList]) => {
       const fieldPath = addPath(path, responseName, parentType.name);
+      const abortSignal = exeContext.validatedExecutionArgs.abortSignal;
+      if (abortSignal?.aborted) {
+        handleFieldError(
+          new Error(abortSignal.reason),
+          exeContext,
+          parentType,
+          fieldDetailsList,
+          fieldPath,
+        );
+        results[responseName] = null;
+        return results;
+      }
+
       const result = executeField(
         exeContext,
         parentType,
@@ -552,6 +573,15 @@ function executeFields(
   try {
     for (const [responseName, fieldDetailsList] of groupedFieldSet) {
       const fieldPath = addPath(path, responseName, parentType.name);
+      const abortSignal = exeContext.validatedExecutionArgs.abortSignal;
+      if (abortSignal?.aborted) {
+        throw locatedError(
+          new Error(abortSignal.reason),
+          toNodes(fieldDetailsList),
+          pathToArray(fieldPath),
+        );
+      }
+
       const result = executeField(
         exeContext,
         parentType,
@@ -1160,8 +1190,9 @@ function completeLeafValue(
   const coerced = returnType.coerceOutputValue(result);
   if (coerced == null) {
     throw new Error(
-      `Expected \`${inspect(returnType)}.coerceOutputValue(${inspect(result)})\` to ` +
-        `return non-nullable value, returned: ${inspect(coerced)}`,
+      `Expected \`${inspect(returnType)}.coerceOutputValue(${inspect(
+        result,
+      )})\` to return non-nullable value, returned: ${inspect(coerced)}`,
     );
   }
   return coerced;
