@@ -35,6 +35,8 @@ words:
   - Coodinate
   - metafield
   - graphiql
+  - uncoerce
+  - uncoerced
 
   # Different names used inside tests
   - Skywalker
