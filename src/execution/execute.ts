@@ -383,7 +383,7 @@ export function validateExecutionArgs(
   } = args;
 
   if (abortSignal?.aborted) {
-    return [locatedError(new Error(abortSignal.reason), undefined)];
+    return [locatedError(abortSignal.reason, undefined)];
   }
 
   // If the schema used for execution is invalid, throw an error.
@@ -523,7 +523,7 @@ function executeFieldsSerially(
       const abortSignal = exeContext.validatedExecutionArgs.abortSignal;
       if (abortSignal?.aborted) {
         handleFieldError(
-          new Error(abortSignal.reason),
+          abortSignal.reason,
           exeContext,
           parentType,
           fieldDetailsList,
@@ -1308,7 +1308,7 @@ function completeObjectValue(
   const abortSignal = validatedExecutionArgs.abortSignal;
   if (abortSignal?.aborted) {
     throw locatedError(
-      new Error(abortSignal.reason),
+      abortSignal.reason,
       toNodes(fieldDetailsList),
       pathToArray(path),
     );

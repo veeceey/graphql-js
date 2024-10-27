@@ -60,7 +60,104 @@ describe('Execute: Cancellation', () => {
       },
     });
 
-    abortController.abort('Aborted');
+    abortController.abort();
+
+    const result = await resultPromise;
+
+    expect(result.errors?.[0].originalError?.name).to.equal('AbortError');
+
+    expectJSON(result).toDeepEqual({
+      data: {
+        todo: null,
+      },
+      errors: [
+        {
+          message: 'This operation was aborted',
+          path: ['todo'],
+          locations: [{ line: 3, column: 9 }],
+        },
+      ],
+    });
+  });
+
+  it('should stop the execution when aborted during object field completion with a custom error', async () => {
+    const abortController = new AbortController();
+    const document = parse(`
+      query {
+        todo {
+          id
+          author {
+            id
+          }
+        }
+      }
+    `);
+
+    const resultPromise = execute({
+      document,
+      schema,
+      abortSignal: abortController.signal,
+      rootValue: {
+        todo: async () =>
+          Promise.resolve({
+            id: '1',
+            text: 'Hello, World!',
+            /* c8 ignore next */
+            author: () => expect.fail('Should not be called'),
+          }),
+      },
+    });
+
+    const customError = new Error('Custom abort error');
+    abortController.abort(customError);
+
+    const result = await resultPromise;
+
+    expect(result.errors?.[0].originalError).to.equal(customError);
+
+    expectJSON(result).toDeepEqual({
+      data: {
+        todo: null,
+      },
+      errors: [
+        {
+          message: 'Custom abort error',
+          path: ['todo'],
+          locations: [{ line: 3, column: 9 }],
+        },
+      ],
+    });
+  });
+
+  it('should stop the execution when aborted during object field completion with a custom string', async () => {
+    const abortController = new AbortController();
+    const document = parse(`
+      query {
+        todo {
+          id
+          author {
+            id
+          }
+        }
+      }
+    `);
+
+    const resultPromise = execute({
+      document,
+      schema,
+      abortSignal: abortController.signal,
+      rootValue: {
+        todo: async () =>
+          Promise.resolve({
+            id: '1',
+            text: 'Hello, World!',
+            /* c8 ignore next */
+            author: () => expect.fail('Should not be called'),
+          }),
+      },
+    });
+
+    abortController.abort('Custom abort error message');
 
     const result = await resultPromise;
 
@@ -70,7 +167,7 @@ describe('Execute: Cancellation', () => {
       },
       errors: [
         {
-          message: 'Aborted',
+          message: 'Unexpected error value: "Custom abort error message"',
           path: ['todo'],
           locations: [{ line: 3, column: 9 }],
         },
@@ -106,7 +203,7 @@ describe('Execute: Cancellation', () => {
       },
     });
 
-    abortController.abort('Aborted');
+    abortController.abort();
 
     const result = await resultPromise;
 
@@ -119,7 +216,7 @@ describe('Execute: Cancellation', () => {
       },
       errors: [
         {
-          message: 'Aborted',
+          message: 'This operation was aborted',
           path: ['todo', 'author'],
           locations: [{ line: 5, column: 11 }],
         },
@@ -147,7 +244,7 @@ describe('Execute: Cancellation', () => {
       },
     });
 
-    abortController.abort('Aborted');
+    abortController.abort();
 
     const result = await resultPromise;
 
@@ -158,7 +255,7 @@ describe('Execute: Cancellation', () => {
       },
       errors: [
         {
-          message: 'Aborted',
+          message: 'This operation was aborted',
           path: ['bar'],
           locations: [{ line: 4, column: 9 }],
         },
@@ -178,7 +275,7 @@ describe('Execute: Cancellation', () => {
         }
       }
     `);
-    abortController.abort('Aborted');
+    abortController.abort();
     const result = await execute({
       document,
       schema,
@@ -192,7 +289,7 @@ describe('Execute: Cancellation', () => {
     expectJSON(result).toDeepEqual({
       errors: [
         {
-          message: 'Aborted',
+          message: 'This operation was aborted',
         },
       ],
     });
