@@ -71,8 +71,8 @@ describe('Execute: Cancellation', () => {
       errors: [
         {
           message: 'Aborted',
-          path: ['todo', 'id'],
-          locations: [{ line: 4, column: 11 }],
+          path: ['todo'],
+          locations: [{ line: 3, column: 9 }],
         },
       ],
     });
@@ -120,8 +120,8 @@ describe('Execute: Cancellation', () => {
       errors: [
         {
           message: 'Aborted',
-          path: ['todo', 'author', 'id'],
-          locations: [{ line: 6, column: 13 }],
+          path: ['todo', 'author'],
+          locations: [{ line: 5, column: 11 }],
         },
       ],
     });
