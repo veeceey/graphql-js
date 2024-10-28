@@ -2,6 +2,7 @@ import { expect } from 'chai';
 import { describe, it } from 'mocha';
 
 import { expectJSON } from '../../__testUtils__/expectJSON.js';
+import { resolveOnNextTick } from '../../__testUtils__/resolveOnNextTick.js';
 
 import { parse } from '../../language/parser.js';
 
@@ -75,6 +76,53 @@ describe('Execute: Cancellation', () => {
           message: 'This operation was aborted',
           path: ['todo'],
           locations: [{ line: 3, column: 9 }],
+        },
+      ],
+    });
+  });
+
+  it('should provide access to the abort signal within resolvers', async () => {
+    const abortController = new AbortController();
+    const document = parse(`
+      query {
+        todo {
+          id
+        }
+      }
+    `);
+
+    const cancellableAsyncFn = async (abortSignal: AbortSignal) => {
+      await resolveOnNextTick();
+      abortSignal.throwIfAborted();
+    };
+
+    const resultPromise = execute({
+      document,
+      schema,
+      abortSignal: abortController.signal,
+      rootValue: {
+        todo: {
+          id: (_args: any, _context: any, _info: any, signal: AbortSignal) =>
+            cancellableAsyncFn(signal),
+        },
+      },
+    });
+
+    abortController.abort();
+
+    const result = await resultPromise;
+
+    expectJSON(result).toDeepEqual({
+      data: {
+        todo: {
+          id: null,
+        },
+      },
+      errors: [
+        {
+          message: 'This operation was aborted',
+          path: ['todo', 'id'],
+          locations: [{ line: 4, column: 11 }],
         },
       ],
     });

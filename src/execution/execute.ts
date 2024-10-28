@@ -623,7 +623,7 @@ function executeField(
   path: Path,
 ): PromiseOrValue<unknown> {
   const validatedExecutionArgs = exeContext.validatedExecutionArgs;
-  const { schema, contextValue, variableValues, hideSuggestions } =
+  const { schema, contextValue, variableValues, hideSuggestions, abortSignal } =
     validatedExecutionArgs;
   const firstFieldDetails = fieldDetailsList[0];
   const firstFieldNode = firstFieldDetails.node;
@@ -661,7 +661,7 @@ function executeField(
     // The resolve function's optional third argument is a context value that
     // is provided to every resolve function within an execution. It is commonly
     // used to represent an authenticated user, or request-specific caches.
-    const result = resolveFn(source, args, contextValue, info);
+    const result = resolveFn(source, args, contextValue, info, abortSignal);
 
     if (isPromise(result)) {
       return completePromisedValue(
@@ -1448,12 +1448,12 @@ export const defaultTypeResolver: GraphQLTypeResolver<unknown, unknown> =
  * of calling that function while passing along args and context value.
  */
 export const defaultFieldResolver: GraphQLFieldResolver<unknown, unknown> =
-  function (source: any, args, contextValue, info) {
+  function (source: any, args, contextValue, info, abortSignal) {
     // ensure source is a value for which property access is acceptable.
     if (isObjectLike(source) || typeof source === 'function') {
       const property = source[info.fieldName];
       if (typeof property === 'function') {
-        return source[info.fieldName](args, contextValue, info);
+        return source[info.fieldName](args, contextValue, info, abortSignal);
       }
       return property;
     }
@@ -1603,6 +1603,7 @@ function executeSubscription(
     operation,
     variableValues,
     hideSuggestions,
+    abortSignal,
   } = validatedExecutionArgs;
 
   const rootType = schema.getSubscriptionType();
@@ -1668,7 +1669,7 @@ function executeSubscription(
     // The resolve function's optional third argument is a context value that
     // is provided to every resolve function within an execution. It is commonly
     // used to represent an authenticated user, or request-specific caches.
-    const result = resolveFn(rootValue, args, contextValue, info);
+    const result = resolveFn(rootValue, args, contextValue, info, abortSignal);
 
     if (isPromise(result)) {
       return result
