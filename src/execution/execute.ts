@@ -58,6 +58,7 @@ import {
 } from './collectFields.js';
 import { getVariableSignature } from './getVariableSignature.js';
 import { mapAsyncIterable } from './mapAsyncIterable.js';
+import { PromiseCanceller } from './PromiseCanceller.js';
 import type { VariableValues } from './values.js';
 import {
   experimentalGetArgumentValues,
@@ -182,6 +183,7 @@ class CollectedErrors {
 export interface ExecutionContext {
   validatedExecutionArgs: ValidatedExecutionArgs;
   collectedErrors: CollectedErrors;
+  promiseCanceller: PromiseCanceller | undefined;
 }
 
 /**
@@ -274,9 +276,13 @@ export function execute(args: ExecutionArgs): PromiseOrValue<ExecutionResult> {
 export function executeQueryOrMutationOrSubscriptionEvent(
   validatedExecutionArgs: ValidatedExecutionArgs,
 ): PromiseOrValue<ExecutionResult> {
+  const abortSignal = validatedExecutionArgs.abortSignal;
   const exeContext: ExecutionContext = {
     validatedExecutionArgs,
     collectedErrors: new CollectedErrors(),
+    promiseCanceller: abortSignal
+      ? new PromiseCanceller(abortSignal)
+      : undefined,
   };
   try {
     const {
@@ -314,17 +320,17 @@ export function executeQueryOrMutationOrSubscriptionEvent(
 
     if (isPromise(result)) {
       return result.then(
-        (data) => buildResponse(data, exeContext.collectedErrors.errors),
+        (data) => buildResponse(exeContext, data),
         (error: unknown) => {
           exeContext.collectedErrors.add(error as GraphQLError, undefined);
-          return buildResponse(null, exeContext.collectedErrors.errors);
+          return buildResponse(exeContext, null);
         },
       );
     }
-    return buildResponse(result, exeContext.collectedErrors.errors);
+    return buildResponse(exeContext, result);
   } catch (error) {
     exeContext.collectedErrors.add(error, undefined);
-    return buildResponse(null, exeContext.collectedErrors.errors);
+    return buildResponse(exeContext, null);
   }
 }
 
@@ -349,9 +355,11 @@ export function executeSync(args: ExecutionArgs): ExecutionResult {
  * response defined by the "Response" section of the GraphQL specification.
  */
 function buildResponse(
+  exeContext: ExecutionContext,
   data: ObjMap<unknown> | null,
-  errors: ReadonlyArray<GraphQLError>,
 ): ExecutionResult {
+  exeContext.promiseCanceller?.disconnect();
+  const errors = exeContext.collectedErrors.errors;
   return errors.length === 0 ? { data } : { errors, data };
 }
 
@@ -622,7 +630,7 @@ function executeField(
   fieldDetailsList: FieldDetailsList,
   path: Path,
 ): PromiseOrValue<unknown> {
-  const validatedExecutionArgs = exeContext.validatedExecutionArgs;
+  const { validatedExecutionArgs, promiseCanceller } = exeContext;
   const { schema, contextValue, variableValues, hideSuggestions, abortSignal } =
     validatedExecutionArgs;
   const firstFieldDetails = fieldDetailsList[0];
@@ -670,7 +678,7 @@ function executeField(
         fieldDetailsList,
         info,
         path,
-        result,
+        promiseCanceller?.withCancellation(result) ?? result,
       );
     }
 
@@ -1137,7 +1145,7 @@ function completeListItemValue(
 }
 
 async function completePromisedListItemValue(
-  item: unknown,
+  item: Promise<unknown>,
   exeContext: ExecutionContext,
   itemType: GraphQLOutputType,
   fieldDetailsList: FieldDetailsList,
@@ -1145,7 +1153,9 @@ async function completePromisedListItemValue(
   itemPath: Path,
 ): Promise<unknown> {
   try {
-    const resolved = await item;
+    const resolved = await (exeContext.promiseCanceller?.withCancellation(
+      item,
+    ) ?? item);
     let completed = completeValue(
       exeContext,
       itemType,
@@ -1304,23 +1314,13 @@ function completeObjectValue(
   path: Path,
   result: unknown,
 ): PromiseOrValue<ObjMap<unknown>> {
-  const validatedExecutionArgs = exeContext.validatedExecutionArgs;
-  const abortSignal = validatedExecutionArgs.abortSignal;
-  if (abortSignal?.aborted) {
-    throw locatedError(
-      abortSignal.reason,
-      toNodes(fieldDetailsList),
-      pathToArray(path),
-    );
-  }
-
   // If there is an isTypeOf predicate function, call it with the
   // current result. If isTypeOf returns false, then raise an error rather
   // than continuing execution.
   if (returnType.isTypeOf) {
     const isTypeOf = returnType.isTypeOf(
       result,
-      validatedExecutionArgs.contextValue,
+      exeContext.validatedExecutionArgs.contextValue,
       info,
     );
 
@@ -1672,11 +1672,22 @@ function executeSubscription(
     const result = resolveFn(rootValue, args, contextValue, info, abortSignal);
 
     if (isPromise(result)) {
-      return result
-        .then(assertEventStream)
-        .then(undefined, (error: unknown) => {
+      const promiseCanceller = abortSignal
+        ? new PromiseCanceller(abortSignal)
+        : undefined;
+      const promise = promiseCanceller?.withCancellation(result) ?? result;
+      return promise.then(assertEventStream).then(
+        (resolved) => {
+          // TODO: add test case
+          /* c8 ignore next */
+          promiseCanceller?.disconnect();
+          return resolved;
+        },
+        (error: unknown) => {
+          promiseCanceller?.disconnect();
           throw locatedError(error, fieldNodes, pathToArray(path));
-        });
+        },
+      );
     }
 
     return assertEventStream(result);

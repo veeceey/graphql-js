@@ -8,12 +8,12 @@ import { parse } from '../../language/parser.js';
 
 import { buildSchema } from '../../utilities/buildASTSchema.js';
 
-import { execute } from '../execute.js';
+import { execute, subscribe } from '../execute.js';
 
 const schema = buildSchema(`
   type Todo {
     id: ID
-    text: String
+    items: [String]
     author: User
   }
 
@@ -24,11 +24,16 @@ const schema = buildSchema(`
 
   type Query {
     todo: Todo
+    nonNullableTodo: Todo!
   }
 
   type Mutation {
     foo: String
     bar: String
+  }
+
+  type Subscription {
+    foo: String
   }
 `);
 
@@ -54,7 +59,6 @@ describe('Execute: Cancellation', () => {
         todo: async () =>
           Promise.resolve({
             id: '1',
-            text: 'Hello, World!',
             /* c8 ignore next */
             author: () => expect.fail('Should not be called'),
           }),
@@ -149,7 +153,6 @@ describe('Execute: Cancellation', () => {
         todo: async () =>
           Promise.resolve({
             id: '1',
-            text: 'Hello, World!',
             /* c8 ignore next */
             author: () => expect.fail('Should not be called'),
           }),
@@ -198,7 +201,6 @@ describe('Execute: Cancellation', () => {
         todo: async () =>
           Promise.resolve({
             id: '1',
-            text: 'Hello, World!',
             /* c8 ignore next */
             author: () => expect.fail('Should not be called'),
           }),
@@ -243,7 +245,6 @@ describe('Execute: Cancellation', () => {
       rootValue: {
         todo: {
           id: '1',
-          text: 'Hello, World!',
           /* c8 ignore next 3 */
           author: async () =>
             Promise.resolve(() => expect.fail('Should not be called')),
@@ -272,6 +273,146 @@ describe('Execute: Cancellation', () => {
     });
   });
 
+  it('should stop the execution when aborted despite a hanging resolver', async () => {
+    const abortController = new AbortController();
+    const document = parse(`
+      query {
+        todo {
+          id
+          author {
+            id
+          }
+        }
+      }
+    `);
+
+    const resultPromise = execute({
+      document,
+      schema,
+      abortSignal: abortController.signal,
+      rootValue: {
+        todo: () =>
+          new Promise(() => {
+            /* will never resolve */
+          }),
+      },
+    });
+
+    abortController.abort();
+
+    const result = await resultPromise;
+
+    expect(result.errors?.[0].originalError?.name).to.equal('AbortError');
+
+    expectJSON(result).toDeepEqual({
+      data: {
+        todo: null,
+      },
+      errors: [
+        {
+          message: 'This operation was aborted',
+          path: ['todo'],
+          locations: [{ line: 3, column: 9 }],
+        },
+      ],
+    });
+  });
+
+  it('should stop the execution when aborted despite a hanging item', async () => {
+    const abortController = new AbortController();
+    const document = parse(`
+      query {
+        todo {
+          id
+          items
+        }
+      }
+    `);
+
+    const resultPromise = execute({
+      document,
+      schema,
+      abortSignal: abortController.signal,
+      rootValue: {
+        todo: () => ({
+          id: '1',
+          items: [
+            new Promise(() => {
+              /* will never resolve */
+            }),
+          ],
+        }),
+      },
+    });
+
+    abortController.abort();
+
+    const result = await resultPromise;
+
+    expect(result.errors?.[0].originalError?.name).to.equal('AbortError');
+
+    expectJSON(result).toDeepEqual({
+      data: {
+        todo: {
+          id: '1',
+          items: [null],
+        },
+      },
+      errors: [
+        {
+          message: 'This operation was aborted',
+          path: ['todo', 'items', 0],
+          locations: [{ line: 5, column: 11 }],
+        },
+      ],
+    });
+  });
+
+  it('should stop the execution when aborted with proper null bubbling', async () => {
+    const abortController = new AbortController();
+    const document = parse(`
+      query {
+        nonNullableTodo {
+          id
+          author {
+            id
+          }
+        }
+      }
+    `);
+
+    const resultPromise = execute({
+      document,
+      schema,
+      abortSignal: abortController.signal,
+      rootValue: {
+        nonNullableTodo: async () =>
+          Promise.resolve({
+            id: '1',
+            /* c8 ignore next */
+            author: () => expect.fail('Should not be called'),
+          }),
+      },
+    });
+
+    abortController.abort();
+
+    const result = await resultPromise;
+
+    expect(result.errors?.[0].originalError?.name).to.equal('AbortError');
+
+    expectJSON(result).toDeepEqual({
+      data: null,
+      errors: [
+        {
+          message: 'This operation was aborted',
+          path: ['nonNullableTodo'],
+          locations: [{ line: 3, column: 9 }],
+        },
+      ],
+    });
+  });
+
   it('should stop the execution when aborted mid-mutation', async () => {
     const abortController = new AbortController();
     const document = parse(`
@@ -291,6 +432,10 @@ describe('Execute: Cancellation', () => {
         bar: () => expect.fail('Should not be called'),
       },
     });
+
+    await resolveOnNextTick();
+    await resolveOnNextTick();
+    await resolveOnNextTick();
 
     abortController.abort();
 
@@ -338,6 +483,41 @@ describe('Execute: Cancellation', () => {
       errors: [
         {
           message: 'This operation was aborted',
+        },
+      ],
+    });
+  });
+
+  it('should stop the execution when aborted during subscription', async () => {
+    const abortController = new AbortController();
+    const document = parse(`
+      subscription {
+        foo
+      }
+    `);
+
+    const resultPromise = subscribe({
+      document,
+      schema,
+      abortSignal: abortController.signal,
+      rootValue: {
+        foo: async () =>
+          new Promise(() => {
+            /* will never resolve */
+          }),
+      },
+    });
+
+    abortController.abort();
+
+    const result = await resultPromise;
+
+    expectJSON(result).toDeepEqual({
+      errors: [
+        {
+          message: 'This operation was aborted',
+          path: ['foo'],
+          locations: [{ line: 3, column: 9 }],
         },
       ],
     });
