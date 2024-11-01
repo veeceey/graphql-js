@@ -6,6 +6,7 @@ import { resolveOnNextTick } from '../../__testUtils__/resolveOnNextTick.js';
 
 import { invariant } from '../../jsutils/invariant.js';
 import type { PromiseOrValue } from '../../jsutils/PromiseOrValue.js';
+import { promiseWithResolvers } from '../../jsutils/promiseWithResolvers.js';
 
 import { parse } from '../../language/parser.js';
 
@@ -662,6 +663,111 @@ describe('Execute: handles non-nullable types', () => {
         await resolveOnNextTick();
       }
       expectJSON(initialErrors).toDeepEqual(result.errors);
+    });
+
+    it('suppresses a later error after a parent has been nulled', async () => {
+      const query = `
+        {
+          syncNest {
+            syncNonNull
+            promise
+          }
+        }
+      `;
+
+      const nonNullDeferred = promiseWithResolvers<unknown>();
+      const promiseDeferred = promiseWithResolvers<unknown>();
+
+      const resultPromise = executeQuery(query, {
+        syncNest: {
+          syncNonNull: () => nonNullDeferred.promise,
+          promise: () => promiseDeferred.promise,
+        },
+      });
+
+      nonNullDeferred.reject(syncNonNullError);
+
+      // give first error a chance to propagate
+      await resolveOnNextTick();
+      await resolveOnNextTick();
+      await resolveOnNextTick();
+
+      promiseDeferred.reject(promiseError);
+
+      const result = await resultPromise;
+
+      expectJSON(result).toDeepEqual({
+        data: { syncNest: null },
+        errors: [
+          {
+            message: syncNonNullError.message,
+            path: ['syncNest', 'syncNonNull'],
+            locations: [{ line: 4, column: 13 }],
+          },
+        ],
+      });
+    });
+  });
+
+  describe('cancellation with null bubbling', () => {
+    function nestedPromise(n: number): string {
+      return n > 0 ? `promiseNest { ${nestedPromise(n - 1)} }` : 'promise';
+    }
+
+    it('returns an single error without cancellation', async () => {
+      const query = `
+        {
+          promiseNonNull,
+          ${nestedPromise(4)}
+        }
+      `;
+
+      const result = await executeQuery(query, throwingData);
+      expectJSON(result).toDeepEqual({
+        data: null,
+        errors: [
+          // does not include syncNullError because result returns prior to it being added
+          {
+            message: 'promiseNonNull',
+            path: ['promiseNonNull'],
+            locations: [{ line: 3, column: 11 }],
+          },
+        ],
+      });
+    });
+
+    it('stops running despite error', async () => {
+      const query = `
+        {
+          promiseNonNull,
+          ${nestedPromise(10)}
+        }
+      `;
+
+      let counter = 0;
+      const rootValue = {
+        ...throwingData,
+        promiseNest() {
+          return new Promise((resolve) => {
+            counter++;
+            resolve(rootValue);
+          });
+        },
+      };
+      const result = await executeQuery(query, rootValue);
+      expectJSON(result).toDeepEqual({
+        data: null,
+        errors: [
+          {
+            message: 'promiseNonNull',
+            path: ['promiseNonNull'],
+            locations: [{ line: 3, column: 11 }],
+          },
+        ],
+      });
+      const counterAtExecutionEnd = counter;
+      await resolveOnNextTick();
+      expect(counter).to.equal(counterAtExecutionEnd);
     });
   });
 

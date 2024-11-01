@@ -184,6 +184,7 @@ export interface ExecutionContext {
   validatedExecutionArgs: ValidatedExecutionArgs;
   collectedErrors: CollectedErrors;
   promiseCanceller: PromiseCanceller | undefined;
+  completed: boolean;
 }
 
 /**
@@ -283,6 +284,7 @@ export function executeQueryOrMutationOrSubscriptionEvent(
     promiseCanceller: abortSignal
       ? new PromiseCanceller(abortSignal)
       : undefined,
+    completed: false,
   };
   try {
     const {
@@ -358,6 +360,7 @@ function buildResponse(
   exeContext: ExecutionContext,
   data: ObjMap<unknown> | null,
 ): ExecutionResult {
+  exeContext.completed = true;
   exeContext.promiseCanceller?.disconnect();
   const errors = exeContext.collectedErrors.errors;
   return errors.length === 0 ? { data } : { errors, data };
@@ -752,6 +755,10 @@ function handleFieldError(
   fieldDetailsList: FieldDetailsList,
   path: Path,
 ): void {
+  if (exeContext.completed) {
+    return;
+  }
+
   const error = locatedError(
     rawError,
     toNodes(fieldDetailsList),
@@ -1314,6 +1321,10 @@ function completeObjectValue(
   path: Path,
   result: unknown,
 ): PromiseOrValue<ObjMap<unknown>> {
+  if (exeContext.completed) {
+    throw new Error('Completed, aborting.');
+  }
+
   // If there is an isTypeOf predicate function, call it with the
   // current result. If isTypeOf returns false, then raise an error rather
   // than continuing execution.
