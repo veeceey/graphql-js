@@ -47,6 +47,11 @@ import {
 import type { GraphQLSchema } from '../type/schema.js';
 import { assertValidSchema } from '../type/validate.js';
 
+import {
+  AbortSignalListener,
+  cancellableIterable,
+  cancellablePromise,
+} from './AbortSignalListener.js';
 import type {
   FieldDetailsList,
   FragmentDetails,
@@ -58,7 +63,6 @@ import {
 } from './collectFields.js';
 import { getVariableSignature } from './getVariableSignature.js';
 import { mapAsyncIterable } from './mapAsyncIterable.js';
-import { PromiseCanceller } from './PromiseCanceller.js';
 import type { VariableValues } from './values.js';
 import {
   experimentalGetArgumentValues,
@@ -183,7 +187,7 @@ class CollectedErrors {
 export interface ExecutionContext {
   validatedExecutionArgs: ValidatedExecutionArgs;
   collectedErrors: CollectedErrors;
-  promiseCanceller: PromiseCanceller | undefined;
+  abortSignalListener: AbortSignalListener | undefined;
   completed: boolean;
 }
 
@@ -281,8 +285,8 @@ export function executeQueryOrMutationOrSubscriptionEvent(
   const exeContext: ExecutionContext = {
     validatedExecutionArgs,
     collectedErrors: new CollectedErrors(),
-    promiseCanceller: abortSignal
-      ? new PromiseCanceller(abortSignal)
+    abortSignalListener: abortSignal
+      ? new AbortSignalListener(abortSignal)
       : undefined,
     completed: false,
   };
@@ -361,7 +365,7 @@ function buildResponse(
   data: ObjMap<unknown> | null,
 ): ExecutionResult {
   exeContext.completed = true;
-  exeContext.promiseCanceller?.disconnect();
+  exeContext.abortSignalListener?.disconnect();
   const errors = exeContext.collectedErrors.errors;
   return errors.length === 0 ? { data } : { errors, data };
 }
@@ -633,7 +637,7 @@ function executeField(
   fieldDetailsList: FieldDetailsList,
   path: Path,
 ): PromiseOrValue<unknown> {
-  const { validatedExecutionArgs, promiseCanceller } = exeContext;
+  const { validatedExecutionArgs, abortSignalListener } = exeContext;
   const { schema, contextValue, variableValues, hideSuggestions, abortSignal } =
     validatedExecutionArgs;
   const firstFieldDetails = fieldDetailsList[0];
@@ -681,7 +685,9 @@ function executeField(
         fieldDetailsList,
         info,
         path,
-        promiseCanceller?.cancellablePromise(result) ?? result,
+        abortSignalListener
+          ? cancellablePromise(result, abortSignalListener)
+          : result,
       );
     }
 
@@ -1010,8 +1016,10 @@ function completeListValue(
   const itemType = returnType.ofType;
 
   if (isAsyncIterable(result)) {
-    const maybeCancellableIterable =
-      exeContext.promiseCanceller?.cancellableIterable(result) ?? result;
+    const abortSignalListener = exeContext.abortSignalListener;
+    const maybeCancellableIterable = abortSignalListener
+      ? cancellableIterable(result, abortSignalListener)
+      : result;
     const asyncIterator = maybeCancellableIterable[Symbol.asyncIterator]();
 
     return completeAsyncIteratorValue(
@@ -1162,9 +1170,11 @@ async function completePromisedListItemValue(
   itemPath: Path,
 ): Promise<unknown> {
   try {
-    const resolved = await (exeContext.promiseCanceller?.cancellablePromise(
-      item,
-    ) ?? item);
+    const abortSignalListener = exeContext.abortSignalListener;
+    const maybeCancellableItem = abortSignalListener
+      ? cancellablePromise(item, abortSignalListener)
+      : item;
+    const resolved = await maybeCancellableItem;
     let completed = completeValue(
       exeContext,
       itemType,
@@ -1527,8 +1537,8 @@ function mapSourceToResponse(
   }
 
   const abortSignal = validatedExecutionArgs.abortSignal;
-  const promiseCanceller = abortSignal
-    ? new PromiseCanceller(abortSignal)
+  const abortSignalListener = abortSignal
+    ? new AbortSignalListener(abortSignal)
     : undefined;
 
   // For each payload yielded from a subscription, map it over the normal
@@ -1536,7 +1546,9 @@ function mapSourceToResponse(
   // This implements the "MapSourceToResponseEvent" algorithm described in
   // the GraphQL specification..
   return mapAsyncIterable(
-    promiseCanceller?.cancellableIterable(resultOrStream) ?? resultOrStream,
+    abortSignalListener
+      ? cancellableIterable(resultOrStream, abortSignalListener)
+      : resultOrStream,
     (payload: unknown) => {
       const perEventExecutionArgs: ValidatedExecutionArgs = {
         ...validatedExecutionArgs,
@@ -1544,7 +1556,7 @@ function mapSourceToResponse(
       };
       return validatedExecutionArgs.perEventExecutor(perEventExecutionArgs);
     },
-    () => promiseCanceller?.disconnect(),
+    () => abortSignalListener?.disconnect(),
   );
 }
 
@@ -1694,18 +1706,20 @@ function executeSubscription(
     const result = resolveFn(rootValue, args, contextValue, info, abortSignal);
 
     if (isPromise(result)) {
-      const promiseCanceller = abortSignal
-        ? new PromiseCanceller(abortSignal)
+      const abortSignalListener = abortSignal
+        ? new AbortSignalListener(abortSignal)
         : undefined;
 
-      const promise = promiseCanceller?.cancellablePromise(result) ?? result;
+      const promise = abortSignalListener
+        ? cancellablePromise(result, abortSignalListener)
+        : result;
       return promise.then(assertEventStream).then(
         (resolved) => {
-          promiseCanceller?.disconnect();
+          abortSignalListener?.disconnect();
           return resolved;
         },
         (error: unknown) => {
-          promiseCanceller?.disconnect();
+          abortSignalListener?.disconnect();
           throw locatedError(error, fieldNodes, pathToArray(path));
         },
       );
