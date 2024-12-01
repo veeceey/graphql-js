@@ -257,7 +257,7 @@ function printArgs(
   );
 }
 
-function printInputValue(arg: GraphQLInputField): string {
+function printInputValue(arg: GraphQLArgument | GraphQLInputField): string {
   let argDecl = arg.name + ': ' + String(arg.type);
   if (arg.defaultValue) {
     const literal =
