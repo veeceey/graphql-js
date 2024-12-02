@@ -10,6 +10,11 @@ ignorePaths:
   - website/icons
   - website/css
 overrides:
+  - filename: 'eslint.config.*'
+    words:
+      - chunkname
+      - nonconstructor
+      - nonoctal
   - filename: 'website/**'
     dictionaries:
       - fullstack

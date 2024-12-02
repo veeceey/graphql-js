@@ -169,6 +169,6 @@ function isMissingVariable(
 ): boolean {
   return (
     valueNode.kind === Kind.VARIABLE &&
-    (variables == null || variables[valueNode.name.value] === undefined)
+    variables?.[valueNode.name.value] === undefined
   );
 }

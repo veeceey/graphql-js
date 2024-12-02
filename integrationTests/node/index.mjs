@@ -1,6 +1,5 @@
-/* eslint-disable simple-import-sort/imports */
-import assert from 'assert';
-import { readFileSync } from 'fs';
+import assert from 'node:assert';
+import { readFileSync } from 'node:fs';
 
 import { graphqlSync } from 'graphql-esm';
 import { astFromValue, buildSchema } from 'graphql-esm/utilities';
@@ -13,7 +12,7 @@ assert.deepStrictEqual(
 
 const schema = buildSchema('type Query { hello: String }');
 
-let result = graphqlSync({
+const result = graphqlSync({
   schema,
   source: '{ hello }',
   rootValue: { hello: 'world' },

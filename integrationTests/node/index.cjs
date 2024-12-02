@@ -1,5 +1,7 @@
-const assert = require('assert');
-const { readFileSync } = require('fs');
+'use strict';
+
+const assert = require('node:assert');
+const { readFileSync } = require('node:fs');
 
 const { graphqlSync } = require('graphql');
 const { astFromValue, buildSchema } = require('graphql/utilities');
@@ -12,7 +14,7 @@ assert.deepStrictEqual(
 
 const schema = buildSchema('type Query { hello: String }');
 
-let result = graphqlSync({
+const result = graphqlSync({
   schema,
   source: '{ hello }',
   rootValue: { hello: 'world' },

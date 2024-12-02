@@ -937,7 +937,6 @@ async function completeAsyncIteratorValue(
   let index = 0;
   const earlyReturn = asyncIterator.return?.bind(asyncIterator);
   try {
-    // eslint-disable-next-line no-constant-condition
     while (true) {
       const itemPath = addPath(path, index, undefined);
       let iteration;
