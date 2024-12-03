@@ -21,8 +21,8 @@ export default tsConfig(
       'npmDist',
       'npmEsmDist',
       'denoDist',
-      'websiteDist',
-      'website',
+      'website/.next',
+      'website/out',
       'integrationTests/ts/*.ts',
     ],
   },
@@ -884,6 +884,8 @@ export default tsConfig(
       'import/no-default-export': 'off',
       'import/no-extraneous-dependencies': 'off',
       'import/no-nodejs-modules': 'off',
+      'import/unambiguous': 'off',
+      'n/no-missing-import': 'off', // allows linting from root of project when website packages are not installed
     },
   },
 );
