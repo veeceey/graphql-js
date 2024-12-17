@@ -210,7 +210,7 @@ export type {
   GraphQLScalarOutputValueCoercer,
   GraphQLScalarInputValueCoercer,
   GraphQLScalarInputLiteralCoercer,
-  GraphQLDefaultValueUsage,
+  GraphQLDefaultInput,
 } from './type/index.js';
 
 // Parse and operate on GraphQL language source files.

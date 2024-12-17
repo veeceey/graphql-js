@@ -19,7 +19,6 @@ import { visit } from '../language/visitor.js';
 import type {
   GraphQLArgument,
   GraphQLCompositeType,
-  GraphQLDefaultValueUsage,
   GraphQLEnumValue,
   GraphQLField,
   GraphQLInputType,
@@ -35,7 +34,7 @@ type NodeWithSelectionSet = OperationDefinitionNode | FragmentDefinitionNode;
 interface VariableUsage {
   readonly node: VariableNode;
   readonly type: Maybe<GraphQLInputType>;
-  readonly defaultValue: GraphQLDefaultValueUsage | undefined;
+  readonly defaultValue: unknown;
   readonly parentType: Maybe<GraphQLInputType>;
   readonly fragmentVariableDefinition: Maybe<VariableDefinitionNode>;
 }
