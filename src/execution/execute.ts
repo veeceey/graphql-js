@@ -44,6 +44,7 @@ import {
   isNonNullType,
   isObjectType,
 } from '../type/definition.js';
+import { GraphQLDisableErrorPropagationDirective } from '../type/directives.js';
 import type { GraphQLSchema } from '../type/schema.js';
 import { assertValidSchema } from '../type/validate.js';
 
@@ -189,6 +190,7 @@ export interface ExecutionContext {
   collectedErrors: CollectedErrors;
   abortSignalListener: AbortSignalListener | undefined;
   completed: boolean;
+  errorPropagation: boolean;
 }
 
 /**
@@ -263,6 +265,15 @@ export function execute(args: ExecutionArgs): PromiseOrValue<ExecutionResult> {
   return executeQueryOrMutationOrSubscriptionEvent(validatedExecutionArgs);
 }
 
+function errorPropagation(operation: OperationDefinitionNode): boolean {
+  const directiveNode = operation.directives?.find(
+    (directive) =>
+      directive.name.value === GraphQLDisableErrorPropagationDirective.name,
+  );
+
+  return directiveNode === undefined;
+}
+
 /**
  * Implements the "Executing operations" section of the spec.
  *
@@ -289,6 +300,7 @@ export function executeQueryOrMutationOrSubscriptionEvent(
       ? new AbortSignalListener(abortSignal)
       : undefined,
     completed: false,
+    errorPropagation: errorPropagation(validatedExecutionArgs.operation),
   };
   try {
     const {
@@ -776,7 +788,7 @@ function handleFieldError(
 
   // If the field type is non-nullable, then it is resolved without any
   // protection from errors, however it still properly locates the error.
-  if (isNonNullType(returnType)) {
+  if (exeContext.errorPropagation && isNonNullType(returnType)) {
     throw error;
   }
 
