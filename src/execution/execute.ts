@@ -322,7 +322,7 @@ export function executeQueryOrMutationOrSubscriptionEvent(
       );
     }
 
-    const groupedFieldSet = collectFields(
+    const { groupedFieldSet } = collectFields(
       schema,
       fragments,
       variableValues,
@@ -1662,7 +1662,7 @@ function executeSubscription(
     );
   }
 
-  const groupedFieldSet = collectFields(
+  const { groupedFieldSet } = collectFields(
     schema,
     fragments,
     variableValues,
