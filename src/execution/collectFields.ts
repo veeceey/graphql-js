@@ -1,7 +1,8 @@
 import { AccumulatorMap } from '../jsutils/AccumulatorMap.js';
-import type { ObjMap } from '../jsutils/ObjMap.js';
+import type { ObjMap, ReadOnlyObjMap } from '../jsutils/ObjMap.js';
 
 import type {
+  ConstValueNode,
   DirectiveNode,
   FieldNode,
   FragmentDefinitionNode,
@@ -23,14 +24,22 @@ import { typeFromAST } from '../utilities/typeFromAST.js';
 
 import type { GraphQLVariableSignature } from './getVariableSignature.js';
 import type { VariableValues } from './values.js';
-import {
-  experimentalGetArgumentValues,
-  getFragmentVariableValues,
-} from './values.js';
+import { getArgumentValues, getFragmentVariableValues } from './values.js';
+
+export interface FragmentVariableValues {
+  readonly sources: ReadOnlyObjMap<FragmentVariableValueSource>;
+  readonly coerced: ReadOnlyObjMap<unknown>;
+}
+
+interface FragmentVariableValueSource {
+  readonly signature: GraphQLVariableSignature;
+  readonly value?: ConstValueNode;
+  readonly fragmentVariableValues?: FragmentVariableValues;
+}
 
 export interface FieldDetails {
   node: FieldNode;
-  fragmentVariableValues?: VariableValues | undefined;
+  fragmentVariableValues?: FragmentVariableValues | undefined;
 }
 
 export type FieldDetailsList = ReadonlyArray<FieldDetails>;
@@ -145,7 +154,7 @@ function collectFieldsImpl(
   context: CollectFieldsContext,
   selectionSet: SelectionSetNode,
   groupedFieldSet: AccumulatorMap<string, FieldDetails>,
-  fragmentVariableValues?: VariableValues,
+  fragmentVariableValues?: FragmentVariableValues,
 ): void {
   const {
     schema,
@@ -221,7 +230,7 @@ function collectFieldsImpl(
         }
 
         const fragmentVariableSignatures = fragment.variableSignatures;
-        let newFragmentVariableValues: VariableValues | undefined;
+        let newFragmentVariableValues: FragmentVariableValues | undefined;
         if (fragmentVariableSignatures) {
           newFragmentVariableValues = getFragmentVariableValues(
             selection,
@@ -253,7 +262,7 @@ function shouldIncludeNode(
   context: CollectFieldsContext,
   node: FragmentSpreadNode | FieldNode | InlineFragmentNode,
   variableValues: VariableValues,
-  fragmentVariableValues: VariableValues | undefined,
+  fragmentVariableValues: FragmentVariableValues | undefined,
 ): boolean {
   const skipDirectiveNode = node.directives?.find(
     (directive) => directive.name.value === GraphQLSkipDirective.name,
@@ -263,9 +272,9 @@ function shouldIncludeNode(
     return false;
   }
   const skip = skipDirectiveNode
-    ? experimentalGetArgumentValues(
+    ? getArgumentValues(
+        GraphQLSkipDirective,
         skipDirectiveNode,
-        GraphQLSkipDirective.args,
         variableValues,
         fragmentVariableValues,
         context.hideSuggestions,
@@ -283,9 +292,9 @@ function shouldIncludeNode(
     return false;
   }
   const include = includeDirectiveNode
-    ? experimentalGetArgumentValues(
+    ? getArgumentValues(
+        GraphQLIncludeDirective,
         includeDirectiveNode,
-        GraphQLIncludeDirective.args,
         variableValues,
         fragmentVariableValues,
         context.hideSuggestions,

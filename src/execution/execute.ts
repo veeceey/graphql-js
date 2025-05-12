@@ -65,11 +65,7 @@ import {
 import { getVariableSignature } from './getVariableSignature.js';
 import { mapAsyncIterable } from './mapAsyncIterable.js';
 import type { VariableValues } from './values.js';
-import {
-  experimentalGetArgumentValues,
-  getArgumentValues,
-  getVariableValues,
-} from './values.js';
+import { getArgumentValues, getVariableValues } from './values.js';
 
 /* eslint-disable @typescript-eslint/max-params */
 // This file contains a lot of such errors but we plan to refactor it anyway
@@ -680,9 +676,9 @@ function executeField(
     // Build a JS object of arguments from the field.arguments AST, using the
     // variables scope to fulfill any variable references.
     // TODO: find a way to memoize, in case this field is within a List type.
-    const args = experimentalGetArgumentValues(
+    const args = getArgumentValues(
+      fieldDef,
       firstFieldNode,
-      fieldDef.args,
       variableValues,
       firstFieldDetails.fragmentVariableValues,
       hideSuggestions,
@@ -1706,6 +1702,7 @@ function executeSubscription(
       fieldDef,
       fieldNodes[0],
       variableValues,
+      fieldDetailsList[0].fragmentVariableValues,
       hideSuggestions,
     );
 

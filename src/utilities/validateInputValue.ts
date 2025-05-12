@@ -28,6 +28,7 @@ import {
   isRequiredInputField,
 } from '../type/definition.js';
 
+import type { FragmentVariableValues } from '../execution/collectFields.js';
 import type { VariableValues } from '../execution/values.js';
 
 import { replaceVariables } from './replaceVariables.js';
@@ -239,7 +240,7 @@ export function validateInputLiteral(
   type: GraphQLInputType,
   onError: (error: GraphQLError, path: ReadonlyArray<string | number>) => void,
   variables?: Maybe<VariableValues>,
-  fragmentVariableValues?: Maybe<VariableValues>,
+  fragmentVariableValues?: Maybe<FragmentVariableValues>,
   hideSuggestions?: Maybe<boolean>,
 ): void {
   const context: ValidationContext = {
@@ -261,7 +262,7 @@ interface ValidationContext {
   static: boolean;
   onError: (error: GraphQLError, path: ReadonlyArray<string | number>) => void;
   variables?: Maybe<VariableValues>;
-  fragmentVariableValues?: Maybe<VariableValues>;
+  fragmentVariableValues?: Maybe<FragmentVariableValues>;
 }
 
 function validateInputLiteralImpl(
@@ -467,7 +468,14 @@ function validateInputLiteralImpl(
     let caughtError;
     try {
       result = type.coerceInputLiteral
-        ? type.coerceInputLiteral(replaceVariables(valueNode), hideSuggestions)
+        ? type.coerceInputLiteral(
+            replaceVariables(
+              valueNode,
+              context.variables,
+              context.fragmentVariableValues,
+            ),
+            hideSuggestions,
+          )
         : type.parseLiteral(valueNode, undefined, hideSuggestions);
     } catch (error) {
       if (error instanceof GraphQLError) {
