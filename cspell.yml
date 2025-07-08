@@ -58,6 +58,7 @@ words:
 
   # TODO: contribute upstream
   - deno
+  - denoland
   - hashbang
   - Rspack
   - Rollup
