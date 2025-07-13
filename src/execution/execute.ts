@@ -895,7 +895,10 @@ function completeValue(
       path,
       result,
     );
-  } /* c8 ignore next 6 */
+    // c8 control statement technically placed a line early secondary to
+    // slight swc source mapping error (at least as compared to ts-node without swc)
+    /* c8 ignore next 7 */
+  }
   // Not reachable, all possible output types have been considered.
   invariant(
     false,
