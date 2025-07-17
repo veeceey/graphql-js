@@ -67,7 +67,7 @@ import { mapAsyncIterable } from './mapAsyncIterable.js';
 import type { VariableValues } from './values.js';
 import { getArgumentValues, getVariableValues } from './values.js';
 
-/* eslint-disable @typescript-eslint/max-params */
+/* eslint-disable max-params */
 // This file contains a lot of such errors but we plan to refactor it anyway
 // so just disable it for entire file.
 
