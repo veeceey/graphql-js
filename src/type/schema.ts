@@ -41,7 +41,7 @@ import {
  * Test if the given value is a GraphQL schema.
  */
 export function isSchema(schema: unknown): schema is GraphQLSchema {
-  return instanceOf(schema, GraphQLSchema);
+  return instanceOf(schema, schemaSymbol, GraphQLSchema);
 }
 
 export function assertSchema(schema: unknown): GraphQLSchema {
@@ -63,6 +63,8 @@ export function assertSchema(schema: unknown): GraphQLSchema {
 export interface GraphQLSchemaExtensions {
   [attributeName: string | symbol]: unknown;
 }
+
+const schemaSymbol: unique symbol = Symbol('Schema');
 
 /**
  * Schema Definition
@@ -133,6 +135,7 @@ export interface GraphQLSchemaExtensions {
  * ```
  */
 export class GraphQLSchema {
+  readonly __kind = schemaSymbol;
   description: Maybe<string>;
   extensions: Readonly<GraphQLSchemaExtensions>;
   astNode: Maybe<SchemaDefinitionNode>;
