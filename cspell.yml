@@ -60,8 +60,11 @@ words:
   - deno
   - denoland
   - hashbang
-  - Rspack
+  - vitest
   - Rollup
+  - Rspack
+  - Rsbuild
+  - Turbopack
 
   # Website tech
   - Nextra

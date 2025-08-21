@@ -1,5 +1,5 @@
 {
-  "description": "graphql-js production mode should work with Node.js",
+  "description": "graphql-js explicit development mode should work",
   "private": true,
   "type": "module",
   "scripts": {

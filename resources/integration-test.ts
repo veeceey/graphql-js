@@ -54,6 +54,7 @@ describe('Integration Tests', () => {
   testOnNodeProject('conditions');
 
   // Development mode tests
+  testOnNodeProject('dev-explicit');
   testOnNodeProject('dev-node');
   testOnNodeProject('dev-deno');
   testOnNodeProject('dev-bun');
