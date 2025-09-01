@@ -185,7 +185,7 @@ function resolveMemberCoordinate(
   // 6. Otherwise:
   // 1. Let {fieldName} be the value of the second {Name}.
   const fieldName = schemaCoordinate.memberName.value;
-  const field = type.getFields()[fieldName];
+  const field = schema.getField(type, fieldName);
 
   // 2. Return the field of {type} named {fieldName} if it exists.
   if (field == null) {
@@ -222,7 +222,7 @@ function resolveArgumentCoordinate(
   // 4. Let {fieldName} be the value of the second {Name}.
   // 5. Let {field} be the field of {type} named {fieldName}.
   const fieldName = schemaCoordinate.fieldName.value;
-  const field = type.getFields()[fieldName];
+  const field = schema.getField(type, fieldName);
 
   // 7. Assert: {field} must exist.
   if (field == null) {

@@ -1,8 +1,9 @@
-import { expect } from 'chai';
+import { assert, expect } from 'chai';
 import { describe, it } from 'mocha';
 
 import type {
   GraphQLEnumType,
+  GraphQLField,
   GraphQLInputObjectType,
   GraphQLObjectType,
 } from '../../type/definition.js';
@@ -179,5 +180,70 @@ describe('resolveSchemaCoordinate', () => {
     expect(() => resolveSchemaCoordinate(schema, '@unknown(arg:)')).to.throw(
       'Expected "unknown" to be defined as a directive in the schema.',
     );
+  });
+});
+
+/*
+ * NOTE: the following are not required for spec compliance; resolution
+ * of meta-fields is implementation-defined.
+ *
+ * These tests are here to ensure a change of behavior will only be made
+ * in a semver-major release of GraphQL.js.
+ */
+describe('resolveSchemaCoordinate (meta-fields and introspection types)', () => {
+  it('resolves a meta-field', () => {
+    const type = schema.getType('Business') as GraphQLObjectType;
+    const field = schema.getField(type, '__typename');
+    assert.ok(field);
+    expect(
+      resolveSchemaCoordinate(schema, 'Business.__typename'),
+    ).to.deep.equal({
+      kind: 'Field',
+      type,
+      field,
+    });
+  });
+
+  it('resolves a meta-field argument', () => {
+    const type = schema.getType('Query') as GraphQLObjectType;
+    const field = schema.getField(type, '__type') as GraphQLField;
+    const fieldArgument = field.args.find((arg) => arg.name === 'name');
+    expect(
+      resolveSchemaCoordinate(schema, 'Query.__type(name:)'),
+    ).to.deep.equal({
+      kind: 'FieldArgument',
+      type,
+      field,
+      fieldArgument,
+    });
+  });
+
+  it('resolves an Introspection Type', () => {
+    expect(resolveSchemaCoordinate(schema, '__Type')).to.deep.equal({
+      kind: 'NamedType',
+      type: schema.getType('__Type'),
+    });
+  });
+
+  it('resolves an Introspection Type Field', () => {
+    const type = schema.getType('__Directive') as GraphQLObjectType;
+    const field = type.getFields().name;
+    expect(resolveSchemaCoordinate(schema, '__Directive.name')).to.deep.equal({
+      kind: 'Field',
+      type,
+      field,
+    });
+  });
+
+  it('resolves an Introspection Type Enum Value', () => {
+    const type = schema.getType('__DirectiveLocation') as GraphQLEnumType;
+    const enumValue = type.getValue('INLINE_FRAGMENT');
+    expect(
+      resolveSchemaCoordinate(schema, '__DirectiveLocation.INLINE_FRAGMENT'),
+    ).to.deep.equal({
+      kind: 'EnumValue',
+      type,
+      enumValue,
+    });
   });
 });
