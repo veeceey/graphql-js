@@ -30,17 +30,19 @@ export function mapAsyncIterable<T, U, R = undefined>(
     try {
       return { value: await callback(value), done: false };
     } catch (error) {
-      /* c8 ignore start */
-      // FIXME: add test case
-      if (typeof iterator.return === 'function') {
-        try {
-          await iterator.return();
-        } catch (_e) {
-          /* ignore error */
-        }
-      }
+      await returnIgnoringErrors();
       throw error;
-      /* c8 ignore stop */
+    }
+  }
+
+  async function returnIgnoringErrors(): Promise<void> {
+    if (typeof iterator.return === 'function') {
+      try {
+        await iterator.return(); /* c8 ignore start */
+      } catch (_error) {
+        // FIXME: add test case
+        /* ignore error */
+      } /* c8 ignore stop */
     }
   }
 
@@ -58,6 +60,11 @@ export function mapAsyncIterable<T, U, R = undefined>(
       if (typeof iterator.throw === 'function') {
         return mapResult(iterator.throw(error));
       }
+
+      if (typeof iterator.return === 'function') {
+        await returnIgnoringErrors();
+      }
+
       throw error;
     },
     [Symbol.asyncIterator]() {
