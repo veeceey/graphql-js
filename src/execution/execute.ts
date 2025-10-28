@@ -947,7 +947,6 @@ async function completeAsyncIteratorValue(
   let containsPromise = false;
   const completedResults: Array<unknown> = [];
   let index = 0;
-  const earlyReturn = asyncIterator.return?.bind(asyncIterator);
   try {
     while (true) {
       const itemPath = addPath(path, index, undefined);
@@ -1004,12 +1003,10 @@ async function completeAsyncIteratorValue(
       index++;
     }
   } catch (error) {
-    if (earlyReturn !== undefined) {
-      earlyReturn().catch(() => {
-        /* c8 ignore next 1 */
-        // ignore error
-      });
-    }
+    asyncIterator.return?.().catch(() => {
+      /* c8 ignore next 1 */
+      // ignore error
+    });
     throw error;
   }
   return containsPromise ? Promise.all(completedResults) : completedResults;
