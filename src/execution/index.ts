@@ -1,11 +1,13 @@
 export { pathToArray as responsePathAsArray } from '../jsutils/Path.js';
 
-export { executeQueryOrMutationOrSubscriptionEvent } from './execute.js';
+export { experimentalExecuteQueryOrMutationOrSubscriptionEvent } from './execute.js';
 
 export {
   createSourceEventStream,
   execute,
   executeSubscriptionEvent,
+  experimentalExecuteIncrementally,
+  executeQueryOrMutationOrSubscriptionEvent,
   executeSync,
   defaultFieldResolver,
   defaultTypeResolver,
@@ -16,7 +18,18 @@ export type { ExecutionArgs } from './entrypoints.js';
 export type {
   ValidatedExecutionArgs,
   ExecutionResult,
+  ExperimentalIncrementalExecutionResults,
+  InitialIncrementalExecutionResult,
+  SubsequentIncrementalExecutionResult,
+  IncrementalDeferResult,
+  IncrementalStreamResult,
+  IncrementalResult,
   FormattedExecutionResult,
+  FormattedInitialIncrementalExecutionResult,
+  FormattedSubsequentIncrementalExecutionResult,
+  FormattedIncrementalDeferResult,
+  FormattedIncrementalStreamResult,
+  FormattedIncrementalResult,
 } from './execute.js';
 
 export {
