@@ -41,6 +41,7 @@ import {
 } from '../type/definition.js';
 import type { GraphQLSchema } from '../type/schema.js';
 
+import { cancellablePromise } from './cancellablePromise.js';
 import type {
   FieldDetailsList,
   FragmentDetails,
@@ -128,6 +129,7 @@ export interface ValidatedExecutionArgs {
   ) => PromiseOrValue<ExecutionResult>;
   hideSuggestions: boolean;
   errorPropagation: boolean;
+  externalAbortSignal: AbortSignal | undefined;
 }
 
 /**
@@ -172,6 +174,9 @@ class CollectedErrors {
 export interface ExecutionContext {
   validatedExecutionArgs: ValidatedExecutionArgs;
   collectedErrors: CollectedErrors;
+  finished: boolean;
+  abortControllers: Set<AbortController>;
+  onExternalAbort: (() => void) | undefined;
 }
 
 /**
@@ -202,10 +207,28 @@ export interface FormattedExecutionResult<
 export function executeQueryOrMutationOrSubscriptionEvent(
   validatedExecutionArgs: ValidatedExecutionArgs,
 ): PromiseOrValue<ExecutionResult> {
+  const externalAbortSignal = validatedExecutionArgs.externalAbortSignal;
+
+  if (externalAbortSignal?.aborted) {
+    throw externalAbortSignal.reason;
+  }
+
   const exeContext: ExecutionContext = {
     validatedExecutionArgs,
     collectedErrors: new CollectedErrors(),
+    finished: false,
+    abortControllers: new Set(),
+    onExternalAbort: undefined,
   };
+
+  if (externalAbortSignal) {
+    const onExternalAbort = () => {
+      finish(exeContext, externalAbortSignal.reason);
+    };
+    externalAbortSignal.addEventListener('abort', onExternalAbort);
+    exeContext.onExternalAbort = onExternalAbort;
+  }
+
   try {
     const {
       schema,
@@ -244,18 +267,43 @@ export function executeQueryOrMutationOrSubscriptionEvent(
     );
 
     if (isPromise(result)) {
-      return result.then(
-        (data) => buildResponse(exeContext, data),
+      const promise = result.then(
+        (data) => {
+          finish(exeContext);
+          return buildResponse(exeContext, data);
+        },
         (error: unknown) => {
+          finish(exeContext);
           exeContext.collectedErrors.add(error as GraphQLError, undefined);
           return buildResponse(exeContext, null);
         },
       );
+      return externalAbortSignal
+        ? cancellablePromise(promise, externalAbortSignal)
+        : promise;
     }
     return buildResponse(exeContext, result);
   } catch (error) {
-    exeContext.collectedErrors.add(error, undefined);
+    exeContext.collectedErrors.add(error as GraphQLError, undefined);
     return buildResponse(exeContext, null);
+  }
+}
+
+function finish(exeContext: ExecutionContext, reason?: unknown): void {
+  if (exeContext.finished) {
+    return;
+  }
+  exeContext.finished = true;
+  const { abortControllers, onExternalAbort } = exeContext;
+  const finishReason = reason ?? new Error('Execution has already completed.');
+  for (const abortController of abortControllers) {
+    abortController.abort(finishReason);
+  }
+  if (onExternalAbort) {
+    exeContext.validatedExecutionArgs.externalAbortSignal?.removeEventListener(
+      'abort',
+      onExternalAbort,
+    );
   }
 }
 
@@ -322,6 +370,9 @@ function executeFieldsSerially(
   return promiseReduce(
     groupedFieldSet,
     (results, [responseName, fieldDetailsList]) => {
+      if (exeContext.finished) {
+        throw new Error('Execution has already completed.');
+      }
       const fieldPath = addPath(path, responseName, parentType.name);
       const result = executeField(
         exeContext,
@@ -433,6 +484,20 @@ function executeField(
     fieldDetailsList,
     parentType,
     path,
+    () => {
+      /* c8 ignore next 3 */
+      if (exeContext.finished) {
+        throw new Error('Execution has already completed.');
+      }
+      const abortController = new AbortController();
+      exeContext.abortControllers.add(abortController);
+      return {
+        abortSignal: abortController.signal,
+        unregister: () => {
+          exeContext.abortControllers.delete(abortController);
+        },
+      };
+    },
   );
 
   // Get the resolve function, regardless of if its result is normal or abrupt (error).
@@ -461,6 +526,7 @@ function executeField(
         info,
         path,
         result,
+        true,
       );
     }
 
@@ -476,19 +542,28 @@ function executeField(
     if (isPromise(completed)) {
       // Note: we don't rely on a `catch` method, but we do expect "thenable"
       // to take a second callback for the error case.
-      return completed.then(undefined, (rawError: unknown) => {
-        handleFieldError(
-          rawError,
-          exeContext,
-          returnType,
-          fieldDetailsList,
-          path,
-        );
-        return null;
-      });
+      return completed.then(
+        (resolved) => {
+          info.unregisterAbortSignal();
+          return resolved;
+        },
+        (rawError: unknown) => {
+          info.unregisterAbortSignal();
+          handleFieldError(
+            rawError,
+            exeContext,
+            returnType,
+            fieldDetailsList,
+            path,
+          );
+          return null;
+        },
+      );
     }
+    info.unregisterAbortSignal();
     return completed;
   } catch (rawError) {
+    info.unregisterAbortSignal();
     handleFieldError(rawError, exeContext, returnType, fieldDetailsList, path);
     return null;
   }
@@ -505,6 +580,10 @@ function handleFieldError(
   fieldDetailsList: FieldDetailsList,
   path: Path,
 ): void {
+  if (exeContext.finished) {
+    throw new Error('Execution has already completed.');
+  }
+
   const error = locatedError(
     rawError,
     toNodes(fieldDetailsList),
@@ -639,12 +718,16 @@ async function completePromisedValue(
   exeContext: ExecutionContext,
   returnType: GraphQLOutputType,
   fieldDetailsList: FieldDetailsList,
-  info: GraphQLResolveInfo,
+  info: ResolveInfo,
   path: Path,
   result: Promise<unknown>,
+  isFieldValue?: boolean,
 ): Promise<unknown> {
   try {
     const resolved = await result;
+    if (exeContext.finished) {
+      throw new Error('Execution has already completed.');
+    }
     let completed = completeValue(
       exeContext,
       returnType,
@@ -656,8 +739,14 @@ async function completePromisedValue(
     if (isPromise(completed)) {
       completed = await completed;
     }
+    if (isFieldValue) {
+      info.unregisterAbortSignal();
+    }
     return completed;
   } catch (rawError) {
+    if (isFieldValue) {
+      info.unregisterAbortSignal();
+    }
     handleFieldError(rawError, exeContext, returnType, fieldDetailsList, path);
     return null;
   }
@@ -679,10 +768,10 @@ async function completeAsyncIterableValue(
   const completedResults: Array<unknown> = [];
   const asyncIterator = items[Symbol.asyncIterator]();
   let index = 0;
+  let iteration;
   try {
     while (true) {
       const itemPath = addPath(path, index, undefined);
-      let iteration;
       try {
         // eslint-disable-next-line no-await-in-loop
         iteration = await asyncIterator.next();
@@ -693,10 +782,7 @@ async function completeAsyncIterableValue(
           pathToArray(path),
         );
       }
-
-      // TODO: add test case for stream returning done before initialCount
-      /* c8 ignore next 3 */
-      if (iteration.done) {
+      if (exeContext.finished || iteration.done) {
         break;
       }
 
@@ -735,9 +821,18 @@ async function completeAsyncIterableValue(
       index++;
     }
   } catch (error) {
-    returnIteratorIgnoringErrors(asyncIterator);
+    returnIteratorCatchingErrors(asyncIterator);
     throw error;
   }
+
+  // Throwing on completion outside of the loop may allow engines to better optimize
+  if (exeContext.finished) {
+    if (!iteration?.done) {
+      returnIteratorCatchingErrors(asyncIterator);
+    }
+    throw new Error('Execution has already completed.');
+  }
+
   return containsPromise ? Promise.all(completedResults) : completedResults;
 }
 
@@ -832,10 +927,11 @@ function completeIterableValue(
       ) {
         containsPromise = true;
       }
+
       index++;
     }
   } catch (error) {
-    returnIteratorIgnoringErrors(iterator);
+    returnIteratorCatchingErrors(iterator);
     throw error;
   }
 
@@ -910,6 +1006,9 @@ async function completePromisedListItemValue(
 ): Promise<unknown> {
   try {
     const resolved = await item;
+    if (exeContext.finished) {
+      throw new Error('Execution has already completed.');
+    }
     let completed = completeValue(
       exeContext,
       itemType,
@@ -972,8 +1071,11 @@ function completeAbstractValue(
   const runtimeType = resolveTypeFn(result, contextValue, info, returnType);
 
   if (isPromise(runtimeType)) {
-    return runtimeType.then((resolvedRuntimeType) =>
-      completeObjectValue(
+    return runtimeType.then((resolvedRuntimeType) => {
+      if (exeContext.finished) {
+        throw new Error('Execution has already completed.');
+      }
+      return completeObjectValue(
         exeContext,
         ensureValidRuntimeType(
           resolvedRuntimeType,
@@ -987,8 +1089,8 @@ function completeAbstractValue(
         info,
         path,
         result,
-      ),
-    );
+      );
+    });
   }
 
   return completeObjectValue(
@@ -1080,6 +1182,9 @@ function completeObjectValue(
 
     if (isPromise(isTypeOf)) {
       return isTypeOf.then((resolvedIsTypeOf) => {
+        if (exeContext.finished) {
+          throw new Error('Execution has already completed.');
+        }
         if (!resolvedIsTypeOf) {
           throw invalidReturnTypeError(returnType, result, fieldDetailsList);
         }
@@ -1161,6 +1266,14 @@ export function mapSourceToResponse(
     return validatedExecutionArgs.perEventExecutor(perEventExecutionArgs);
   }
 
+  const externalAbortSignal = validatedExecutionArgs.externalAbortSignal;
+  if (externalAbortSignal) {
+    const generator = mapAsyncIterable(resultOrStream, mapFn);
+    return {
+      ...generator,
+      next: () => cancellablePromise(generator.next(), externalAbortSignal),
+    };
+  }
   return mapAsyncIterable(resultOrStream, mapFn);
 }
 
@@ -1192,6 +1305,7 @@ function executeSubscription(
     operation,
     variableValues,
     hideSuggestions,
+    externalAbortSignal,
   } = validatedExecutionArgs;
 
   const rootType = schema.getSubscriptionType();
@@ -1235,6 +1349,7 @@ function executeSubscription(
     fieldDetailsList,
     rootType,
     path,
+    () => ({ abortSignal: externalAbortSignal }),
   );
 
   try {
@@ -1262,7 +1377,10 @@ function executeSubscription(
     const result = resolveFn(rootValue, args, contextValue, info);
 
     if (isPromise(result)) {
-      return result
+      const promise = externalAbortSignal
+        ? cancellablePromise(result, externalAbortSignal)
+        : result;
+      return promise
         .then(assertEventStream)
         .then(undefined, (error: unknown) => {
           throw locatedError(
@@ -1272,7 +1390,6 @@ function executeSubscription(
           );
         });
     }
-
     return assertEventStream(result);
   } catch (error) {
     throw locatedError(error, toNodes(fieldDetailsList), pathToArray(path));
@@ -1295,9 +1412,9 @@ function assertEventStream(result: unknown): AsyncIterable<unknown> {
   return result;
 }
 
-function returnIteratorIgnoringErrors(
+function returnIteratorCatchingErrors(
   iterator: Iterator<unknown> | AsyncIterator<unknown>,
-) {
+): void {
   try {
     const result = iterator.return?.();
     if (isPromise(result)) {
