@@ -24,7 +24,6 @@ import { OperationTypeNode } from '../language/ast.js';
 
 import type {
   GraphQLAbstractType,
-  GraphQLField,
   GraphQLFieldResolver,
   GraphQLLeafType,
   GraphQLList,
@@ -58,6 +57,7 @@ import {
   collectSubfields as _collectSubfields,
 } from './collectFields.js';
 import { mapAsyncIterable } from './mapAsyncIterable.js';
+import { ResolveInfo } from './ResolveInfo.js';
 import type { VariableValues } from './values.js';
 import { getArgumentValues } from './values.js';
 import { withConcurrentAbruptClose } from './withConcurrentAbruptClose.js';
@@ -482,10 +482,10 @@ function executeField(
   const returnType = fieldDef.type;
   const resolveFn = fieldDef.resolve ?? validatedExecutionArgs.fieldResolver;
 
-  const info = buildResolveInfo(
+  const info = new ResolveInfo(
     validatedExecutionArgs,
     fieldDef,
-    toNodes(fieldDetailsList),
+    fieldDetailsList,
     parentType,
     path,
     abortSignal,
@@ -554,37 +554,6 @@ function executeField(
 
 function toNodes(fieldDetailsList: FieldDetailsList): ReadonlyArray<FieldNode> {
   return fieldDetailsList.map((fieldDetails) => fieldDetails.node);
-}
-
-/**
- * TODO: consider no longer exporting this function
- * @internal
- */
-export function buildResolveInfo(
-  validatedExecutionArgs: ValidatedExecutionArgs,
-  fieldDef: GraphQLField<unknown, unknown>,
-  fieldNodes: ReadonlyArray<FieldNode>,
-  parentType: GraphQLObjectType,
-  path: Path,
-  abortSignal: AbortSignal | undefined,
-): GraphQLResolveInfo {
-  const { schema, fragmentDefinitions, rootValue, operation, variableValues } =
-    validatedExecutionArgs;
-  // The resolve function's optional fourth argument is a collection of
-  // information about the current execution state.
-  return {
-    fieldName: fieldDef.name,
-    fieldNodes,
-    returnType: fieldDef.type,
-    parentType,
-    path,
-    schema,
-    fragments: fragmentDefinitions,
-    rootValue,
-    operation,
-    variableValues,
-    abortSignal,
-  };
 }
 
 function handleFieldError(
@@ -1336,19 +1305,18 @@ function executeSubscription(
   const fieldName = firstFieldNode.name.value;
   const fieldDef = schema.getField(rootType, fieldName);
 
-  const fieldNodes = fieldDetailsList.map((fieldDetails) => fieldDetails.node);
   if (!fieldDef) {
     throw new GraphQLError(
       `The subscription field "${fieldName}" is not defined.`,
-      { nodes: fieldNodes },
+      { nodes: toNodes(fieldDetailsList) },
     );
   }
 
   const path = addPath(undefined, responseName, rootType.name);
-  const info = buildResolveInfo(
+  const info = new ResolveInfo(
     validatedExecutionArgs,
     fieldDef,
-    toNodes(fieldDetailsList),
+    fieldDetailsList,
     rootType,
     path,
     abortSignal,
@@ -1393,14 +1361,18 @@ function executeSubscription(
         },
         (error: unknown) => {
           abortSignalListener?.disconnect();
-          throw locatedError(error, fieldNodes, pathToArray(path));
+          throw locatedError(
+            error,
+            toNodes(fieldDetailsList),
+            pathToArray(path),
+          );
         },
       );
     }
 
     return assertEventStream(result);
   } catch (error) {
-    throw locatedError(error, fieldNodes, pathToArray(path));
+    throw locatedError(error, toNodes(fieldDetailsList), pathToArray(path));
   }
 }
 
