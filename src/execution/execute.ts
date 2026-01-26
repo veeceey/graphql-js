@@ -39,7 +39,6 @@ import {
   isNonNullType,
   isObjectType,
 } from '../type/definition.js';
-import { GraphQLDisableErrorPropagationDirective } from '../type/directives.js';
 import type { GraphQLSchema } from '../type/schema.js';
 
 import {
@@ -134,6 +133,7 @@ export interface ValidatedExecutionArgs {
     validatedExecutionArgs: ValidatedExecutionArgs,
   ) => PromiseOrValue<ExecutionResult>;
   hideSuggestions: boolean;
+  errorPropagation: boolean;
   abortSignal: AbortSignal | undefined;
 }
 
@@ -181,7 +181,6 @@ export interface ExecutionContext {
   collectedErrors: CollectedErrors;
   abortSignalListener: AbortSignalListener | undefined;
   completed: boolean;
-  errorPropagation: boolean;
 }
 
 /**
@@ -209,30 +208,6 @@ export interface FormattedExecutionResult<
   extensions?: TExtensions;
 }
 
-function errorPropagation(operation: OperationDefinitionNode): boolean {
-  const directiveNode = operation.directives?.find(
-    (directive) =>
-      directive.name.value === GraphQLDisableErrorPropagationDirective.name,
-  );
-
-  return directiveNode === undefined;
-}
-
-/**
- * Implements the "Executing operations" section of the spec.
- *
- * Returns a Promise that will eventually resolve to the data described by
- * The "Response" section of the GraphQL specification.
- *
- * If errors are encountered while executing a GraphQL field, only that
- * field and its descendants will be omitted, and sibling fields will still
- * be executed. An execution which encounters errors will still result in a
- * resolved Promise.
- *
- * Errors from sub-fields of a NonNull type may propagate to the top level,
- * at which point we still log the error and null the parent field, which
- * in this case is the entire response.
- */
 export function executeQueryOrMutationOrSubscriptionEvent(
   validatedExecutionArgs: ValidatedExecutionArgs,
 ): PromiseOrValue<ExecutionResult> {
@@ -244,7 +219,6 @@ export function executeQueryOrMutationOrSubscriptionEvent(
       ? new AbortSignalListener(abortSignal)
       : undefined,
     completed: false,
-    errorPropagation: errorPropagation(validatedExecutionArgs.operation),
   };
   try {
     const {
@@ -575,7 +549,10 @@ function handleFieldError(
 
   // If the field type is non-nullable, then it is resolved without any
   // protection from errors, however it still properly locates the error.
-  if (exeContext.errorPropagation && isNonNullType(returnType)) {
+  if (
+    exeContext.validatedExecutionArgs.errorPropagation &&
+    isNonNullType(returnType)
+  ) {
     throw error;
   }
 
