@@ -32,7 +32,7 @@ import { GraphQLSchema } from '../../type/schema.js';
 
 import { valueFromASTUntyped } from '../../utilities/valueFromASTUntyped.js';
 
-import { executeSync } from '../execute.js';
+import { executeSync } from '../entrypoints.js';
 import { getVariableValues } from '../values.js';
 
 const TestFaultyScalarGraphQLError = new GraphQLError(

@@ -11,7 +11,7 @@ import { parse } from '../../language/parser.js';
 
 import { buildSchema } from '../../utilities/buildASTSchema.js';
 
-import { execute, subscribe } from '../execute.js';
+import { execute, subscribe } from '../entrypoints.js';
 
 const schema = buildSchema(`
   type Todo {

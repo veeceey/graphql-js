@@ -1,18 +1,19 @@
 export { pathToArray as responsePathAsArray } from '../jsutils/Path.js';
 
+export { executeQueryOrMutationOrSubscriptionEvent } from './execute.js';
+
 export {
   createSourceEventStream,
   execute,
-  executeQueryOrMutationOrSubscriptionEvent,
   executeSubscriptionEvent,
   executeSync,
   defaultFieldResolver,
   defaultTypeResolver,
   subscribe,
-} from './execute.js';
+} from './entrypoints.js';
+export type { ExecutionArgs } from './entrypoints.js';
 
 export type {
-  ExecutionArgs,
   ValidatedExecutionArgs,
   ExecutionResult,
   FormattedExecutionResult,

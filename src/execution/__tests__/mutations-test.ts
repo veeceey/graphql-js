@@ -10,7 +10,7 @@ import { GraphQLObjectType } from '../../type/definition.js';
 import { GraphQLInt } from '../../type/scalars.js';
 import { GraphQLSchema } from '../../type/schema.js';
 
-import { execute, executeSync } from '../execute.js';
+import { execute, executeSync } from '../entrypoints.js';
 
 class NumberHolder {
   theNumber: number;

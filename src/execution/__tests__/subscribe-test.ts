@@ -20,12 +20,13 @@ import {
 } from '../../type/scalars.js';
 import { GraphQLSchema } from '../../type/schema.js';
 
-import type { ExecutionArgs, ExecutionResult } from '../execute.js';
+import type { ExecutionArgs } from '../entrypoints.js';
 import {
   createSourceEventStream,
   executeSubscriptionEvent,
   subscribe,
-} from '../execute.js';
+} from '../entrypoints.js';
+import type { ExecutionResult } from '../execute.js';
 
 import { SimplePubSub } from './simplePubSub.js';
 
