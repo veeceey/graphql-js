@@ -41,11 +41,6 @@ import {
 } from '../type/definition.js';
 import type { GraphQLSchema } from '../type/schema.js';
 
-import {
-  AbortSignalListener,
-  cancellableIterable,
-  cancellablePromise,
-} from './AbortSignalListener.js';
 import type {
   FieldDetailsList,
   FragmentDetails,
@@ -59,7 +54,6 @@ import { mapAsyncIterable } from './mapAsyncIterable.js';
 import { ResolveInfo } from './ResolveInfo.js';
 import type { VariableValues } from './values.js';
 import { getArgumentValues } from './values.js';
-import { withConcurrentAbruptClose } from './withConcurrentAbruptClose.js';
 
 /* eslint-disable max-params */
 // This file contains a lot of such errors but we plan to refactor it anyway
@@ -134,7 +128,6 @@ export interface ValidatedExecutionArgs {
   ) => PromiseOrValue<ExecutionResult>;
   hideSuggestions: boolean;
   errorPropagation: boolean;
-  abortSignal: AbortSignal | undefined;
 }
 
 /**
@@ -179,8 +172,6 @@ class CollectedErrors {
 export interface ExecutionContext {
   validatedExecutionArgs: ValidatedExecutionArgs;
   collectedErrors: CollectedErrors;
-  abortSignalListener: AbortSignalListener | undefined;
-  completed: boolean;
 }
 
 /**
@@ -211,14 +202,9 @@ export interface FormattedExecutionResult<
 export function executeQueryOrMutationOrSubscriptionEvent(
   validatedExecutionArgs: ValidatedExecutionArgs,
 ): PromiseOrValue<ExecutionResult> {
-  const abortSignal = validatedExecutionArgs.abortSignal;
   const exeContext: ExecutionContext = {
     validatedExecutionArgs,
     collectedErrors: new CollectedErrors(),
-    abortSignalListener: abortSignal
-      ? new AbortSignalListener(abortSignal)
-      : undefined,
-    completed: false,
   };
   try {
     const {
@@ -281,10 +267,8 @@ function buildResponse(
   exeContext: ExecutionContext,
   data: ObjMap<unknown> | null,
 ): ExecutionResult {
-  exeContext.completed = true;
-  exeContext.abortSignalListener?.disconnect();
   const errors = exeContext.collectedErrors.errors;
-  return errors.length === 0 ? { data } : { errors, data };
+  return errors.length ? { errors, data } : { data };
 }
 
 function executeRootGroupedFieldSet(
@@ -339,19 +323,6 @@ function executeFieldsSerially(
     groupedFieldSet,
     (results, [responseName, fieldDetailsList]) => {
       const fieldPath = addPath(path, responseName, parentType.name);
-      const abortSignal = exeContext.validatedExecutionArgs.abortSignal;
-      if (abortSignal?.aborted) {
-        handleFieldError(
-          abortSignal.reason,
-          exeContext,
-          parentType,
-          fieldDetailsList,
-          fieldPath,
-        );
-        results[responseName] = null;
-        return results;
-      }
-
       const result = executeField(
         exeContext,
         parentType,
@@ -441,8 +412,8 @@ function executeField(
   fieldDetailsList: FieldDetailsList,
   path: Path,
 ): PromiseOrValue<unknown> {
-  const { validatedExecutionArgs, abortSignalListener } = exeContext;
-  const { schema, contextValue, variableValues, hideSuggestions, abortSignal } =
+  const { validatedExecutionArgs } = exeContext;
+  const { schema, contextValue, variableValues, hideSuggestions } =
     validatedExecutionArgs;
   const firstFieldDetails = fieldDetailsList[0];
   const firstFieldNode = firstFieldDetails.node;
@@ -462,7 +433,6 @@ function executeField(
     fieldDetailsList,
     parentType,
     path,
-    abortSignal,
   );
 
   // Get the resolve function, regardless of if its result is normal or abrupt (error).
@@ -490,9 +460,7 @@ function executeField(
         fieldDetailsList,
         info,
         path,
-        abortSignalListener
-          ? cancellablePromise(result, abortSignalListener)
-          : result,
+        result,
       );
     }
 
@@ -537,10 +505,6 @@ function handleFieldError(
   fieldDetailsList: FieldDetailsList,
   path: Path,
 ): void {
-  if (exeContext.completed) {
-    return;
-  }
-
   const error = locatedError(
     rawError,
     toNodes(fieldDetailsList),
@@ -792,18 +756,13 @@ function completeListValue(
   const itemType = returnType.ofType;
 
   if (isAsyncIterable(result)) {
-    const abortSignalListener = exeContext.abortSignalListener;
-    const maybeCancellableIterable = abortSignalListener
-      ? cancellableIterable(result, abortSignalListener)
-      : result;
-
     return completeAsyncIterableValue(
       exeContext,
       itemType,
       fieldDetailsList,
       info,
       path,
-      maybeCancellableIterable,
+      result,
     );
   }
 
@@ -950,11 +909,7 @@ async function completePromisedListItemValue(
   itemPath: Path,
 ): Promise<unknown> {
   try {
-    const abortSignalListener = exeContext.abortSignalListener;
-    const maybeCancellableItem = abortSignalListener
-      ? cancellablePromise(item, abortSignalListener)
-      : item;
-    const resolved = await maybeCancellableItem;
+    const resolved = await item;
     let completed = completeValue(
       exeContext,
       itemType,
@@ -1113,10 +1068,6 @@ function completeObjectValue(
   path: Path,
   result: unknown,
 ): PromiseOrValue<ObjMap<unknown>> {
-  if (exeContext.completed) {
-    throw new Error('Completed, aborting.');
-  }
-
   // If there is an isTypeOf predicate function, call it with the
   // current result. If isTypeOf returns false, then raise an error rather
   // than continuing execution.
@@ -1198,11 +1149,6 @@ export function mapSourceToResponse(
     return resultOrStream;
   }
 
-  const abortSignal = validatedExecutionArgs.abortSignal;
-  const abortSignalListener = abortSignal
-    ? new AbortSignalListener(abortSignal)
-    : undefined;
-
   // For each payload yielded from a subscription, map it over the normal
   // GraphQL `execute` function, with `payload` as the rootValue.
   // This implements the "MapSourceToResponseEvent" algorithm described in
@@ -1215,15 +1161,7 @@ export function mapSourceToResponse(
     return validatedExecutionArgs.perEventExecutor(perEventExecutionArgs);
   }
 
-  return abortSignalListener
-    ? withConcurrentAbruptClose(
-        mapAsyncIterable(
-          cancellableIterable(resultOrStream, abortSignalListener),
-          mapFn,
-        ),
-        () => abortSignalListener.disconnect(),
-      )
-    : mapAsyncIterable(resultOrStream, mapFn);
+  return mapAsyncIterable(resultOrStream, mapFn);
 }
 
 export function createSourceEventStreamImpl(
@@ -1254,7 +1192,6 @@ function executeSubscription(
     operation,
     variableValues,
     hideSuggestions,
-    abortSignal,
   } = validatedExecutionArgs;
 
   const rootType = schema.getSubscriptionType();
@@ -1298,7 +1235,6 @@ function executeSubscription(
     fieldDetailsList,
     rootType,
     path,
-    abortSignal,
   );
 
   try {
@@ -1326,27 +1262,15 @@ function executeSubscription(
     const result = resolveFn(rootValue, args, contextValue, info);
 
     if (isPromise(result)) {
-      const abortSignalListener = abortSignal
-        ? new AbortSignalListener(abortSignal)
-        : undefined;
-
-      const promise = abortSignalListener
-        ? cancellablePromise(result, abortSignalListener)
-        : result;
-      return promise.then(assertEventStream).then(
-        (resolved) => {
-          abortSignalListener?.disconnect();
-          return resolved;
-        },
-        (error: unknown) => {
-          abortSignalListener?.disconnect();
+      return result
+        .then(assertEventStream)
+        .then(undefined, (error: unknown) => {
           throw locatedError(
             error,
             toNodes(fieldDetailsList),
             pathToArray(path),
           );
-        },
-      );
+        });
     }
 
     return assertEventStream(result);
