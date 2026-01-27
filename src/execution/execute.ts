@@ -703,16 +703,17 @@ async function completePromisedValue(
  * Complete a async iterator value by completing the result and calling
  * recursively until all the results are completed.
  */
-async function completeAsyncIteratorValue(
+async function completeAsyncIterableValue(
   exeContext: ExecutionContext,
   itemType: GraphQLOutputType,
   fieldDetailsList: FieldDetailsList,
   info: GraphQLResolveInfo,
   path: Path,
-  asyncIterator: AsyncIterator<unknown>,
+  items: AsyncIterable<unknown>,
 ): Promise<ReadonlyArray<unknown>> {
   let containsPromise = false;
   const completedResults: Array<unknown> = [];
+  const asyncIterator = items[Symbol.asyncIterator]();
   let index = 0;
   try {
     while (true) {
@@ -770,10 +771,7 @@ async function completeAsyncIteratorValue(
       index++;
     }
   } catch (error) {
-    asyncIterator.return?.().catch(() => {
-      /* c8 ignore next 1 */
-      // ignore error
-    });
+    returnIteratorIgnoringErrors(asyncIterator);
     throw error;
   }
   return containsPromise ? Promise.all(completedResults) : completedResults;
@@ -798,15 +796,14 @@ function completeListValue(
     const maybeCancellableIterable = abortSignalListener
       ? cancellableIterable(result, abortSignalListener)
       : result;
-    const asyncIterator = maybeCancellableIterable[Symbol.asyncIterator]();
 
-    return completeAsyncIteratorValue(
+    return completeAsyncIterableValue(
       exeContext,
       itemType,
       fieldDetailsList,
       info,
       path,
-      asyncIterator,
+      maybeCancellableIterable,
     );
   }
 
@@ -834,48 +831,53 @@ function completeIterableValue(
   path: Path,
   items: Iterable<unknown>,
 ): PromiseOrValue<ReadonlyArray<unknown>> {
-  // This is specified as a simple map, however we're optimizing the path
-  // where the list contains no Promises by avoiding creating another Promise.
   let containsPromise = false;
   const completedResults: Array<unknown> = [];
   let index = 0;
   const iterator = items[Symbol.iterator]();
-  let iteration = iterator.next();
-  while (!iteration.done) {
-    const item = iteration.value;
+  try {
+    while (true) {
+      const iteration = iterator.next();
+      if (iteration.done) {
+        break;
+      }
 
-    // No need to modify the info object containing the path,
-    // since from here on it is not ever accessed by resolver functions.
-    const itemPath = addPath(path, index, undefined);
+      const item = iteration.value;
 
-    if (isPromise(item)) {
-      completedResults.push(
-        completePromisedListItemValue(
+      // No need to modify the info object containing the path,
+      // since from here on it is not ever accessed by resolver functions.
+      const itemPath = addPath(path, index, undefined);
+
+      if (isPromise(item)) {
+        completedResults.push(
+          completePromisedListItemValue(
+            item,
+            exeContext,
+            itemType,
+            fieldDetailsList,
+            info,
+            itemPath,
+          ),
+        );
+        containsPromise = true;
+      } else if (
+        completeListItemValue(
           item,
+          completedResults,
           exeContext,
           itemType,
           fieldDetailsList,
           info,
           itemPath,
-        ),
-      );
-      containsPromise = true;
-    } else if (
-      completeListItemValue(
-        item,
-        completedResults,
-        exeContext,
-        itemType,
-        fieldDetailsList,
-        info,
-        itemPath,
-      )
-    ) {
-      containsPromise = true;
+        )
+      ) {
+        containsPromise = true;
+      }
+      index++;
     }
-
-    index++;
-    iteration = iterator.next();
+  } catch (error) {
+    returnIteratorIgnoringErrors(iterator);
+    throw error;
   }
 
   return containsPromise ? Promise.all(completedResults) : completedResults;
@@ -1367,4 +1369,19 @@ function assertEventStream(result: unknown): AsyncIterable<unknown> {
   }
 
   return result;
+}
+
+function returnIteratorIgnoringErrors(
+  iterator: Iterator<unknown> | AsyncIterator<unknown>,
+) {
+  try {
+    const result = iterator.return?.();
+    if (isPromise(result)) {
+      result.catch(() => {
+        // ignore errors
+      });
+    }
+  } catch {
+    // ignore errors
+  }
 }
